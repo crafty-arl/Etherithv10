@@ -76,14 +76,16 @@ export default function ConnectionManager({
     if (!identity || !currentSpace) return
 
     try {
-      const newConnection = createConnection({
+      const connectionData: Connection = {
+        id: `${identity.id}-${targetUserId}-${Date.now()}`,
         fromUserId: identity.id,
         toUserId: targetUserId,
         type,
-        status: type === 'follow' ? 'accepted' : 'pending' // Follow is immediate, friend needs approval
-      })
+        status: (type === 'follow' ? 'accepted' : 'pending') as Connection['status'], // Follow is immediate, friend needs approval
+        timestamp: Date.now()
+      }
 
-      await addObject(newConnection)
+      await createConnection(currentSpace, connectionData)
       await refetchConnections()
 
       console.log(`✅ ${type} request sent to user:`, targetUserId)
@@ -223,7 +225,7 @@ export default function ConnectionManager({
             </p>
             <p className="connection-date">
               {connection.type === 'friend' && connection.status === 'pending' ? 'Requested' : 'Connected'} {' '}
-              {new Date(connection.createdAt).toLocaleDateString()}
+              {new Date(connection.createdAt || connection.timestamp).toLocaleDateString()}
             </p>
           </div>
         </div>

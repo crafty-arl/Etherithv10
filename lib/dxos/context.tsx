@@ -4,12 +4,13 @@
  */
 
 import React, { createContext, useContext, useEffect, useState, useCallback, ReactNode } from 'react'
-import { EtherithDXOSClient, dxosClient, UserProfile, Memory, Connection, Community, Notification } from './client'
+import { dxosClient, UserProfile, Memory, Connection, Community, Notification } from './client'
+import type { MainDXOSClient } from './client'
 import { getNetworkDiscovery } from '../../utils/network-discovery'
 
 // Context types
 interface DXOSContextType {
-  client: EtherithDXOSClient | null
+  client: MainDXOSClient | null
   isInitialized: boolean
   isConnected: boolean
   identity: any | null
@@ -22,6 +23,8 @@ interface DXOSContextType {
   createSpace: (name?: string) => Promise<any>
   joinSpace: (invitationCode: string, authCode?: string) => Promise<void>
   setCurrentSpace: (space: any) => void
+  joinGlobalDiscordSpace: () => Promise<any>
+  getOrCreateGlobalDiscordSpace: () => Promise<any>
 
   // Social features
   userProfile: UserProfile | null
@@ -92,14 +95,8 @@ export function DXOSProvider({ children, autoInitialize = true }: DXOSProviderPr
         }
       }
 
-      // Start network monitoring
-      console.log('📡 [DEBUG] Starting network monitoring...')
-      const monitoringInterval = dxosClient.startNetworkMonitoring(30000)
-
-      // Clean up monitoring on unmount (stored in a ref if needed)
-      if (typeof window !== 'undefined') {
-        (window as any).dxosMonitoringInterval = monitoringInterval
-      }
+      // Network monitoring removed - method not available in current implementation
+      console.log('📡 [DEBUG] Network monitoring not implemented yet')
 
       console.log('✅ [DEBUG] DXOS context initialization completed successfully')
     } catch (err) {
@@ -146,19 +143,38 @@ export function DXOSProvider({ children, autoInitialize = true }: DXOSProviderPr
         displayName: newIdentity.displayName
       })
 
-      // Create enhanced user profile with Discord linkage
-      let spaceForProfile = currentSpace
+      // Join global Discord space for all Discord users
+      let globalDiscordSpace = null
+      if (discordData) {
+        console.log('🌍 [DEBUG] Discord user detected, joining global Discord space...')
+        try {
+          globalDiscordSpace = await dxosClient.joinGlobalDiscordSpace()
+          console.log('✅ [DEBUG] Successfully joined global Discord space:', globalDiscordSpace.id)
+        } catch (globalSpaceError) {
+          console.error('❌ [DEBUG] Failed to join global Discord space:', globalSpaceError)
+          // Continue without global space, but log the issue
+        }
+      }
 
-      // If no current space exists, create one
+      // Create enhanced user profile with Discord linkage
+      let spaceForProfile = globalDiscordSpace || currentSpace
+
+      // If no space exists (including global space), create a personal one
       if (!spaceForProfile) {
-        console.log('🌌 [DEBUG] No current space found, creating a new space for user profile...')
+        console.log('🌌 [DEBUG] No current space found, creating a new personal space for user profile...')
         try {
           spaceForProfile = await createSpace(`${identityName}'s Space`)
-          console.log('✅ [DEBUG] New space created for user profile:', spaceForProfile.id)
+          console.log('✅ [DEBUG] New personal space created for user profile:', spaceForProfile.id)
         } catch (spaceError) {
-          console.error('❌ [DEBUG] Failed to create space for profile:', spaceError)
+          console.error('❌ [DEBUG] Failed to create personal space for profile:', spaceError)
           // Continue without space, but log the issue
         }
+      }
+
+      // Set the global Discord space as current space if it was created/joined
+      if (globalDiscordSpace && !currentSpace) {
+        setCurrentSpace(globalDiscordSpace)
+        console.log('🎯 [DEBUG] Set global Discord space as current space:', globalDiscordSpace.id)
       }
 
       if (spaceForProfile) {
@@ -184,8 +200,21 @@ export function DXOSProvider({ children, autoInitialize = true }: DXOSProviderPr
         await dxosClient.addObject(spaceForProfile, profile)
         setUserProfile(profile)
 
+        // If user joined global Discord space, also store profile there for discoverability
+        if (globalDiscordSpace && spaceForProfile.id !== globalDiscordSpace.id) {
+          try {
+            await dxosClient.addObject(globalDiscordSpace, {
+              ...profile,
+              type: 'global_user_profile' // Mark as global profile for easy identification
+            })
+            console.log('✅ [DEBUG] User profile also stored in global Discord space for discoverability')
+          } catch (globalProfileError) {
+            console.warn('⚠️ [DEBUG] Could not store profile in global space:', globalProfileError)
+          }
+        }
+
         // Log successful profile creation
-        console.log('✅ [DEBUG] User profile stored successfully in space')
+        console.log('✅ [DEBUG] User profile stored successfully in space(s)')
 
         // Check online users after profile creation
         setTimeout(async () => {
@@ -251,6 +280,40 @@ export function DXOSProvider({ children, autoInitialize = true }: DXOSProviderPr
     }
   }, [])
 
+  const joinGlobalDiscordSpace = useCallback(async () => {
+    try {
+      setError(null)
+      const globalSpace = await dxosClient.joinGlobalDiscordSpace()
+
+      // Refresh spaces after joining
+      const updatedSpaces = dxosClient.getSpaces()
+      setSpaces(updatedSpaces)
+
+      // Set as current space if no current space exists
+      if (!currentSpace) {
+        setCurrentSpace(globalSpace)
+      }
+
+      console.log('✅ Successfully joined global Discord space:', globalSpace.id)
+      return globalSpace
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to join global Discord space'
+      setError(errorMessage)
+      throw err
+    }
+  }, [currentSpace])
+
+  const getOrCreateGlobalDiscordSpace = useCallback(async () => {
+    try {
+      setError(null)
+      return await dxosClient.getOrCreateGlobalDiscordSpace()
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to get or create global Discord space'
+      setError(errorMessage)
+      throw err
+    }
+  }, [])
+
   /**
    * Set current active space
    */
@@ -281,10 +344,11 @@ export function DXOSProvider({ children, autoInitialize = true }: DXOSProviderPr
   useEffect(() => {
     if (identity && currentSpace && !userProfile) {
       // Try to load existing user profile from the space
-      dxosClient.queryObjects(currentSpace, { id: identity.id })
+      dxosClient.getUserProfiles(currentSpace)
         .then((profiles: any[]) => {
-          if (profiles.length > 0) {
-            setUserProfile(profiles[0])
+          const userProfileData = profiles.find(p => p.id === identity.id)
+          if (userProfileData) {
+            setUserProfile(userProfileData)
           }
         })
         .catch(err => {
@@ -304,6 +368,8 @@ export function DXOSProvider({ children, autoInitialize = true }: DXOSProviderPr
     createIdentity,
     createSpace,
     joinSpace,
+    joinGlobalDiscordSpace,
+    getOrCreateGlobalDiscordSpace,
     setCurrentSpace: setCurrentSpaceCallback,
     userProfile,
     setUserProfile,
@@ -382,8 +448,9 @@ export function useQuery<T = any>(filter?: any): {
     try {
       setLoading(true)
       setError(null)
-      const results = await client.queryObjects<T>(currentSpace, filter)
-      setData(results)
+      // Use the space's database to query objects
+      const results = await currentSpace.db.query(filter || {}).run()
+      setData(results || [])
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Query failed'
       setError(errorMessage)
@@ -423,17 +490,28 @@ export function useSubscription<T = any>(filter?: any): {
       return
     }
 
-    setLoading(true)
-    setError(null)
+    const fetchData = async () => {
+      try {
+        setLoading(true)
+        setError(null)
+        const results = await currentSpace.db.query(filter || {}).run()
+        setData(results || [])
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'Subscription failed'
+        setError(errorMessage)
+        setData([])
+      } finally {
+        setLoading(false)
+      }
+    }
 
-    const unsubscribe = client.subscribeToSpace(currentSpace, (objects: T[]) => {
-      const filteredObjects = filter ? objects.filter(filter) : objects
-      setData(filteredObjects)
-      setLoading(false)
-    })
+    fetchData()
+
+    // Set up polling for real-time updates
+    const interval = setInterval(fetchData, 5000)
 
     return () => {
-      unsubscribe()
+      clearInterval(interval)
     }
   }, [client, currentSpace, filter])
 
@@ -463,7 +541,8 @@ export function useMutation() {
       throw new Error('DXOS client or space not available')
     }
 
-    await client.removeObject(currentSpace, object)
+    // Remove object from space database
+    currentSpace.db.remove(object)
   }, [client, currentSpace])
 
   return {

@@ -20,6 +20,7 @@ export class MockClient {
   private mockSpaces: any[] = []
   private mockIdentity: any = null
   private mockObjects = new Map<string, any[]>() // Track objects per space
+  private static globalDiscordSpace: any = null // Shared global space across all instances
 
   constructor(config: any) {
     console.log('🔧 Using Mock DXOS Client for demo purposes')
@@ -28,7 +29,43 @@ export class MockClient {
   async initialize(): Promise<void> {
     await new Promise(resolve => setTimeout(resolve, 1000)) // Simulate initialization
     this.initialized = true
+
+    // Load existing global Discord space from localStorage if it exists
+    this.loadGlobalDiscordSpace()
+
     console.log('✅ Mock DXOS client initialized')
+  }
+
+  private loadGlobalDiscordSpace(): void {
+    if (typeof window === 'undefined') return
+
+    try {
+      const storedGlobalSpace = localStorage.getItem('mock_global_discord_space')
+      if (storedGlobalSpace) {
+        const globalSpace = JSON.parse(storedGlobalSpace)
+        MockClient.globalDiscordSpace = globalSpace
+
+        // Add the global space to our local spaces if not already present
+        const hasGlobalSpace = this.mockSpaces.some(space => space.id === globalSpace.id)
+        if (!hasGlobalSpace) {
+          this.mockSpaces.push(globalSpace)
+          console.log('🌍 [MOCK] Loaded existing global Discord space:', globalSpace.id)
+        }
+      }
+    } catch (error) {
+      console.warn('⚠️ [MOCK] Failed to load global Discord space from storage:', error)
+    }
+  }
+
+  private saveGlobalDiscordSpace(): void {
+    if (typeof window === 'undefined' || !MockClient.globalDiscordSpace) return
+
+    try {
+      localStorage.setItem('mock_global_discord_space', JSON.stringify(MockClient.globalDiscordSpace))
+      console.log('💾 [MOCK] Saved global Discord space to storage')
+    } catch (error) {
+      console.warn('⚠️ [MOCK] Failed to save global Discord space to storage:', error)
+    }
   }
 
   addTypes(types: any[]): void {
@@ -40,10 +77,23 @@ export class MockClient {
       identity: {
         get: () => this.mockIdentity
       },
-      createIdentity: async (options?: { displayName?: string }) => {
+      createIdentity: async (options?: { displayName?: string, discordData?: any }) => {
+        // Create unique identity ID based on Discord ID if available, or timestamp + random for uniqueness
+        let identityId: string
+        if (options?.discordData?.discordId) {
+          identityId = `dxos-discord-${options.discordData.discordId}`
+        } else {
+          identityId = `mock-identity-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+        }
+
         this.mockIdentity = {
-          id: `mock-identity-${Date.now()}`,
-          displayName: options?.displayName || 'Mock User'
+          id: identityId,
+          displayName: options?.displayName || 'Mock User',
+          ...(options?.discordData && {
+            discordId: options.discordData.discordId,
+            discordUsername: options.discordData.username,
+            avatar: options.discordData.avatar
+          })
         }
 
         // Add this user to all existing spaces as a member

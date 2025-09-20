@@ -258,7 +258,7 @@ export default function DXOSMemoryManager({
 
                 <div className="memory-metadata">
                   <div className="memory-author">
-                    <span className="author-name">{memory.author}</span>
+                    <span className="author-name">{memory.authorId || 'Unknown'}</span>
                     <span className="memory-timestamp">
                       <SafeTimestamp timestamp={memory.timestamp} format="relative" />
                     </span>

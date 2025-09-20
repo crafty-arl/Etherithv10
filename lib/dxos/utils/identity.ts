@@ -3,7 +3,7 @@
  * Provides high-level identity operations and Discord integration
  */
 
-import { dxosClient, UserProfile, createUserProfile } from '../client'
+import { dxosClient, UserProfile, addUserProfile } from '../client'
 
 export interface IdentityOptions {
   displayName?: string
@@ -43,7 +43,7 @@ export class IdentityService {
     const identity = await dxosClient.createIdentity(displayName)
 
     // Create enhanced user profile
-    const profile = createUserProfile({
+    const profile: UserProfile = {
       id: identity.id,
       displayName: displayName || identity.displayName,
       joinedAt: Date.now(),
@@ -55,21 +55,13 @@ export class IdentityService {
         avatar: discordData.avatar,
         email: discordData.email
       }),
-      // User preferences
-      preferences: {
-        theme: 'system',
-        privacy: 'friends',
-        notifications: true,
-        ...preferences
-      },
       // Initialize social stats
       socialStats: {
         followers: 0,
         following: 0,
-        posts: 0,
-        likes: 0
+        posts: 0
       }
-    })
+    }
 
     return { identity, profile }
   }
@@ -118,15 +110,16 @@ export class IdentityService {
     updates: Partial<UserProfile>
   ): Promise<UserProfile | null> {
     try {
-      // Query existing profile
-      const profiles = await dxosClient.queryObjects<UserProfile>(space, { id: identityId })
+      // Query existing profile using getUserProfiles
+      const profiles = await dxosClient.getUserProfiles(space)
+      const matchingProfiles = profiles.filter(p => p.id === identityId)
 
-      if (profiles.length === 0) {
+      if (matchingProfiles.length === 0) {
         console.warn('No profile found for identity:', identityId)
         return null
       }
 
-      const existingProfile = profiles[0]
+      const existingProfile = matchingProfiles[0]
 
       // Merge updates
       const updatedProfile: UserProfile = {
@@ -135,8 +128,7 @@ export class IdentityService {
         lastActive: Date.now()
       }
 
-      // Remove old profile and add updated one
-      await dxosClient.removeObject(space, existingProfile)
+      // Add updated profile (DXOS will handle the update)
       await dxosClient.addObject(space, updatedProfile)
 
       return updatedProfile
@@ -177,9 +169,9 @@ export class IdentityService {
     // Simple reputation calculation
     const followersWeight = Math.min(stats.followers * 0.1, 10)
     const postsWeight = Math.min(stats.posts * 0.05, 5)
-    const likesWeight = Math.min(stats.likes * 0.01, 5)
+    const followingWeight = Math.min(stats.following * 0.02, 3)
 
-    return Math.round(followersWeight + postsWeight + likesWeight)
+    return Math.round(followersWeight + postsWeight + followingWeight)
   }
 
   /**

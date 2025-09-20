@@ -6,10 +6,13 @@ import React, { useState, useEffect } from 'react'
 import { GetServerSideProps } from 'next'
 import { getSession } from 'next-auth/react'
 import Head from 'next/head'
-import { DXOSProvider } from '../lib/dxos/context'
+import { DXOSProvider, useDXOS } from '../lib/dxos/context'
 import DXOSIdentityManager from '../components/DXOSIdentityManager'
 import NetworkDebugPanel from '../components/NetworkDebugPanel'
 import NetworkMemories from '../components/NetworkMemories'
+import { OnlineUsersDebug } from '../components/OnlineUsersDebug'
+import { NetworkDiagnostics } from '../components/NetworkDiagnostics'
+import { GlobalSpaceDebug } from '../components/GlobalSpaceDebug'
 
 interface DebugPageProps {
   hasSession: boolean
@@ -19,6 +22,8 @@ interface DebugPageProps {
 export default function DebugPage({ hasSession, sessionData }: DebugPageProps) {
   const [debugLog, setDebugLog] = useState<string[]>([])
   const [isTestingNetwork, setIsTestingNetwork] = useState(false)
+  const [showOnlineUsersDebug, setShowOnlineUsersDebug] = useState(false)
+  const [showNetworkDiagnostics, setShowNetworkDiagnostics] = useState(false)
 
   // Capture console logs for debugging
   useEffect(() => {
@@ -152,6 +157,9 @@ export default function DebugPage({ hasSession, sessionData }: DebugPageProps) {
             <NetworkDebugPanel autoRefresh={true} refreshInterval={10000} />
           </div>
 
+          {/* Global Space Debug */}
+          <GlobalSpaceDebug />
+
           {/* Network Memories */}
           <div className="debug-section">
             <h2>💭 Network Memories</h2>
@@ -175,6 +183,18 @@ export default function DebugPage({ hasSession, sessionData }: DebugPageProps) {
               >
                 🧹 Clear Log
               </button>
+              <button
+                onClick={() => setShowOnlineUsersDebug(true)}
+                className="test-button secondary"
+              >
+                👥 Online Users Debug
+              </button>
+              <button
+                onClick={() => setShowNetworkDiagnostics(true)}
+                className="test-button secondary"
+              >
+                🔍 Network Diagnostics
+              </button>
             </div>
           </div>
 
@@ -194,6 +214,16 @@ export default function DebugPage({ hasSession, sessionData }: DebugPageProps) {
             </div>
           </div>
         </div>
+
+        {/* Online Users Debug Modal */}
+        {showOnlineUsersDebug && (
+          <OnlineUsersDebug onClose={() => setShowOnlineUsersDebug(false)} />
+        )}
+
+        {/* Network Diagnostics Modal */}
+        {showNetworkDiagnostics && (
+          <NetworkDiagnostics onClose={() => setShowNetworkDiagnostics(false)} />
+        )}
       </DXOSProvider>
 
       <style jsx>{`

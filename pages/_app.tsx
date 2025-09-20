@@ -4,6 +4,7 @@ import { SessionProvider } from 'next-auth/react'
 import ErrorBoundary from '../components/ErrorBoundary'
 import { DXOSProvider } from '../lib/dxos/context'
 import '../styles/globals.css'
+import '../styles/online-users-debug.css'
 
 export default function App({ Component, pageProps: { session, ...pageProps } }: AppProps) {
   return (

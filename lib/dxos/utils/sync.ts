@@ -100,11 +100,12 @@ export class SyncService {
   private static updateSyncStatus() {
     try {
       // Mock implementation - in real DXOS, this would query actual peer connections
-      const client = dxosClient.getClient()
+      // Check if client is available and connected
+      const isConnected = dxosClient.isConnected()
 
       this.syncStatus = {
         ...this.syncStatus,
-        isConnected: !!client,
+        isConnected: isConnected,
         peersCount: Math.floor(Math.random() * 5), // Mock peer count
         lastSyncTime: Date.now(),
         pendingOperations: this.syncOperations.size

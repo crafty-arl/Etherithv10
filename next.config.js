@@ -185,6 +185,111 @@ const nextConfig = {
   experimental: {
     scrollRestoration: true,
   },
+  webpack: (config, { buildId, dev, isServer, defaultLoaders, webpack }) => {
+    // Enable WebAssembly support for DXOS
+    config.experiments = {
+      ...config.experiments,
+      asyncWebAssembly: true,
+      syncWebAssembly: true,
+      topLevelAwait: true,
+    }
+
+    // Handle WASM files properly
+    config.module.rules.push({
+      test: /\.wasm$/,
+      type: 'webassembly/async',
+    })
+
+    // Handle automerge WASM specifically
+    config.module.rules.push({
+      test: /automerge.*\.wasm$/,
+      type: 'asset/resource',
+      generator: {
+        filename: 'static/wasm/[name].[hash][ext]',
+      },
+    })
+
+    // Handle automerge wasm bindings
+    config.module.rules.push({
+      test: /automerge_wasm\.js$/,
+      loader: 'string-replace-loader',
+      options: {
+        search: 'import.*from.*[\'"].*wasm.*[\'"]',
+        replace: '// Replaced WASM import',
+        flags: 'g'
+      }
+    })
+
+    // Handle wasm bindgen generated files
+    config.module.rules.push({
+      test: /automerge.*\.js$/,
+      use: {
+        loader: 'babel-loader',
+        options: {
+          presets: ['@babel/preset-env'],
+          plugins: [
+            function() {
+              return {
+                visitor: {
+                  ImportDeclaration(path) {
+                    // Handle various WASM import patterns
+                    if (path.node.source.value.includes('wasm') ||
+                        path.node.source.value === 'wbg' ||
+                        path.node.source.value.includes('__wbindgen')) {
+                      // Replace with a no-op import
+                      path.remove();
+                    }
+                  },
+                  ExportNamedDeclaration(path) {
+                    // Handle named exports from WASM
+                    if (path.node.source &&
+                        (path.node.source.value.includes('wasm') ||
+                         path.node.source.value === 'wbg')) {
+                      path.remove();
+                    }
+                  }
+                },
+              };
+            },
+          ],
+        },
+      },
+    })
+
+    // Resolve extensions and modules
+    config.resolve.extensions = [...config.resolve.extensions, '.wasm']
+
+    // Fallback for Node.js modules in browser
+    if (!isServer) {
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        fs: false,
+        net: false,
+        tls: false,
+        crypto: require.resolve('crypto-browserify'),
+        stream: require.resolve('stream-browserify'),
+        url: require.resolve('url'),
+        zlib: require.resolve('browserify-zlib'),
+        http: require.resolve('stream-http'),
+        https: require.resolve('https-browserify'),
+        assert: require.resolve('assert'),
+        os: require.resolve('os-browserify/browser'),
+        path: require.resolve('path-browserify'),
+        buffer: require.resolve('buffer'),
+        process: require.resolve('process/browser'),
+      }
+
+      // Provide globals
+      config.plugins.push(
+        new webpack.ProvidePlugin({
+          Buffer: ['buffer', 'Buffer'],
+          process: 'process/browser',
+        })
+      )
+    }
+
+    return config
+  },
 }
 
 module.exports = withPWA(nextConfig)

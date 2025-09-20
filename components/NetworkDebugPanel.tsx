@@ -92,10 +92,7 @@ export default function NetworkDebugPanel({
       // Refresh network discovery
       refreshNetwork()
 
-      // Log current network status
-      if (isInitialized) {
-        await dxosClient.logNetworkStatus()
-      }
+      // Network status logging removed - method not available
 
       // Gather fresh stats
       const freshStats = await gatherNetworkStats()
@@ -118,8 +115,9 @@ export default function NetworkDebugPanel({
 
     try {
       if (isInitialized) {
-        await dxosClient.testNetworkConnectivity()
-        console.log('✅ [DEBUG] Network connectivity test passed')
+        // Basic connectivity test - check if client is connected
+        const connected = dxosClient.isConnected()
+        console.log(`✅ [DEBUG] Connection status: ${connected ? 'Connected' : 'Disconnected'}`)
       } else {
         console.log('⚠️ [DEBUG] DXOS not initialized, skipping connectivity test')
       }

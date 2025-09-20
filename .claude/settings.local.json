@@ -10,7 +10,9 @@
       "WebFetch(domain:docs.dxos.org)",
       "Bash(npm run build:*)",
       "Bash(cat:*)",
-      "Bash(npm run test:unit:*)"
+      "Bash(npm run test:unit:*)",
+      "Bash(npm search:*)",
+      "Bash(npm ls:*)"
     ],
     "deny": [],
     "ask": []

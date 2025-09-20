@@ -3,7 +3,7 @@ import { useSession, signOut } from 'next-auth/react'
 import { useRouter } from 'next/router'
 import Head from 'next/head'
 import MemoryCard from '../components/MemoryCard'
-import MemoryUploadComponent from '../components/MemoryUpload'
+import { EnhancedMemoryUpload } from '../components/EnhancedMemoryUpload'
 import MemoryViewer from '../components/MemoryViewer'
 import { Memory, SearchFilters, UserProfile } from '../types/memory'
 import { LocalStorage } from '../utils/storage'
@@ -95,15 +95,12 @@ export default function VaultPage() {
     setFilteredMemories(searchMemories)
   }
 
-  const handleUploadComplete = (memoryId: string) => {
+  const handleMemoryUploaded = (memory: Memory) => {
     loadMemories()
     loadStats()
     setShowUpload(false)
     // Optionally show the uploaded memory
-    const newMemory = LocalStorage.getMemoryById(memoryId)
-    if (newMemory) {
-      setSelectedMemory(newMemory)
-    }
+    setSelectedMemory(memory)
   }
 
   const handleMemoryView = (memory: Memory) => {
@@ -533,8 +530,8 @@ export default function VaultPage() {
       </div>
 
       {showUpload && (
-        <MemoryUploadComponent
-          onUploadComplete={handleUploadComplete}
+        <EnhancedMemoryUpload
+          onMemoryUploaded={handleMemoryUploaded}
           onClose={() => setShowUpload(false)}
         />
       )}

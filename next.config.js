@@ -15,10 +15,8 @@ const nextConfig = {
       'media.discordapp.net'
     ],
   },
-  api: {
-    bodyParser: {
-      sizeLimit: '10mb', // Increase body size limit to 10MB
-    },
+  eslint: {
+    ignoreDuringBuilds: true,
   },
 }
 

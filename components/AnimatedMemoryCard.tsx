@@ -121,7 +121,7 @@ export default function AnimatedMemoryCard({
       y: 0,
       transition: {
         duration: 0.3,
-        type: "spring",
+        type: "spring" as const,
         stiffness: 300
       }
     },
@@ -181,7 +181,7 @@ export default function AnimatedMemoryCard({
         transition={{
           delay: index * 0.1,
           duration: 0.6,
-          type: "spring",
+          type: "spring" as const,
           stiffness: 100,
           damping: 15
         }}

@@ -2,7 +2,10 @@
   "permissions": {
     "allow": [
       "Bash(npm run dev:*)",
-      "WebFetch(domain:docs.pinata.cloud)"
+      "WebFetch(domain:docs.pinata.cloud)",
+      "Bash(npm install:*)",
+      "Bash(npm test)",
+      "Bash(npm run lint)"
     ],
     "deny": [],
     "ask": []

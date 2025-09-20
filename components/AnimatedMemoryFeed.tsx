@@ -57,7 +57,7 @@ export default function AnimatedMemoryFeed({
       y: 0,
       transition: {
         duration: 0.6,
-        type: "spring",
+        type: "spring" as const,
         stiffness: 100
       }
     }
@@ -70,7 +70,7 @@ export default function AnimatedMemoryFeed({
       y: 0,
       transition: {
         duration: 0.4,
-        ease: "easeOut"
+        ease: "easeOut" as const
       }
     }
   }
@@ -137,7 +137,7 @@ export default function AnimatedMemoryFeed({
                 }}
                 transition={{
                   duration: 0.4,
-                  type: "spring",
+                  type: "spring" as const,
                   stiffness: 100
                 }}
               >

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import Head from 'next/head'
+import Link from 'next/link'
 import { useSession } from 'next-auth/react'
 import { motion, AnimatePresence } from 'framer-motion'
 import DiscordConnect from '../components/DiscordConnect'
@@ -71,7 +72,7 @@ export default function Home() {
       y: 0,
       transition: {
         duration: 0.6,
-        ease: "easeOut"
+        ease: "easeOut" as const
       }
     }
   }
@@ -83,7 +84,7 @@ export default function Home() {
       rotate: 0,
       transition: {
         duration: 0.8,
-        type: "spring",
+        type: "spring" as const,
         stiffness: 200
       }
     },
@@ -105,7 +106,7 @@ export default function Home() {
       transition: {
         delay: i * 0.2,
         duration: 0.6,
-        type: "spring",
+        type: "spring" as const,
         stiffness: 100
       }
     }),
@@ -114,7 +115,7 @@ export default function Home() {
       scale: 1.05,
       transition: {
         duration: 0.3,
-        type: "spring",
+        type: "spring" as const,
         stiffness: 300
       }
     }
@@ -192,36 +193,20 @@ export default function Home() {
             </motion.p>
           </motion.div>
 
-          <motion.div 
-            className="etherith-status" 
-            role="status" 
-            aria-live="polite"
-            variants={itemVariants}
-          >
-            <div className="status-row">
-              <div className={`status-indicator ${isOnline ? 'online' : 'offline'}`}>
-                <div className="status-dot" aria-hidden="true"></div>
-                <span className="sr-only">Connection status: </span>
-                {isOnline ? 'Connected' : 'Offline'}
-              </div>
-              
-              <IPFSStatus 
-                isConnected={ipfsConnected}
-                replicas={ipfsReplicas}
-                lastSeen={Date.now()}
-                className="ipfs-status-main"
-              />
-            </div>
-          </motion.div>
 
           <DiscordConnect />
 
           {session && (
             <div className="vault-access">
-              <a href="/memory-vault" className="vault-button" role="button" aria-label="Access your personal memory vault">
+              <Link
+                href="/memory-vault"
+                className="vault-button"
+                role="button"
+                aria-label="Access your personal memory vault"
+              >
                 <span className="vault-icon" aria-hidden="true">🔒</span>
                 Access Memory Vault
-              </a>
+              </Link>
             </div>
           )}
 

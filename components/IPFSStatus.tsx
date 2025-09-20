@@ -23,7 +23,7 @@ export default function IPFSStatus({ isConnected, replicas = 0, lastSeen = 0, cl
       opacity: 1, 
       scale: 1,
       transition: {
-        type: "spring",
+        type: "spring" as const,
         stiffness: 300,
         damping: 20
       }
@@ -42,7 +42,7 @@ export default function IPFSStatus({ isConnected, replicas = 0, lastSeen = 0, cl
       transition: {
         duration: 2,
         repeat: Infinity,
-        ease: "easeInOut"
+        ease: "easeInOut" as const
       }
     },
     static: {
@@ -58,7 +58,7 @@ export default function IPFSStatus({ isConnected, replicas = 0, lastSeen = 0, cl
       opacity: 1,
       transition: {
         duration: 1.5,
-        ease: "easeInOut"
+        ease: "easeInOut" as const
       }
     }
   }
@@ -71,7 +71,7 @@ export default function IPFSStatus({ isConnected, replicas = 0, lastSeen = 0, cl
       transition: {
         delay: i * 0.1,
         duration: 0.3,
-        type: "spring",
+        type: "spring" as const,
         stiffness: 300
       }
     })
@@ -88,7 +88,7 @@ export default function IPFSStatus({ isConnected, replicas = 0, lastSeen = 0, cl
       opacity: 1,
       transition: { 
         duration: 0.3,
-        ease: "easeOut"
+        ease: "easeOut" as const
       }
     }
   }

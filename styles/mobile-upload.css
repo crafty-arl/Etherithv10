@@ -5,13 +5,13 @@
   bottom: 0;
   left: 0;
   right: 0;
-  background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+  background: linear-gradient(135deg, var(--color-background-dark) 0%, var(--color-background-tertiary) 100%);
   border-radius: 20px 20px 0 0;
   box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.5);
   z-index: 1000;
   max-height: 90vh;
   overflow: hidden;
-  color: #f5f5dc;
+  color: var(--color-text-light);
 }
 
 .bottomsheet-header {
@@ -48,7 +48,7 @@
   right: 20px;
   background: none;
   border: none;
-  color: #f5f5dc;
+  color: var(--color-text-light);
   font-size: 24px;
   cursor: pointer;
   padding: 4px;
@@ -153,10 +153,10 @@
 
 .capture-option {
   padding: 20px;
-  background: rgba(45, 45, 45, 0.8);
-  border: 1px solid rgba(212, 175, 55, 0.2);
+  background: rgba(45, 45, 45, 0.9);
+  border: 1px solid var(--color-border);
   border-radius: 12px;
-  color: #f5f5dc;
+  color: var(--color-text-light);
   cursor: pointer;
   transition: all 0.2s ease;
   display: flex;
@@ -238,12 +238,13 @@
 .form-input,
 .form-textarea {
   padding: 12px;
-  background: rgba(45, 45, 45, 0.8);
-  border: 1px solid rgba(212, 175, 55, 0.2);
+  background: rgba(45, 45, 45, 0.9);
+  border: 1px solid var(--color-border);
   border-radius: 8px;
-  color: #f5f5dc;
+  color: var(--color-text-light);
   font-size: 16px;
   line-height: 1.5;
+  text-shadow: var(--text-shadow-medium);
 }
 
 .form-input.large {

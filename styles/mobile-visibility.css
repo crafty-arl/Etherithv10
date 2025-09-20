@@ -5,13 +5,13 @@
   bottom: 0;
   left: 0;
   right: 0;
-  background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+  background: linear-gradient(135deg, var(--color-background-dark) 0%, var(--color-background-tertiary) 100%);
   border-radius: 20px 20px 0 0;
   box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.5);
   z-index: 1000;
   max-height: 85vh;
   overflow: hidden;
-  color: #f5f5dc;
+  color: var(--color-text-light);
 }
 
 .panel-header {
@@ -71,7 +71,7 @@
 
 .memory-header h3 {
   font-size: 18px;
-  color: #f5f5dc;
+  color: var(--color-text-light);
   margin: 0;
   flex: 1;
   margin-right: 12px;
@@ -156,7 +156,7 @@
 .visibility-title {
   font-size: 18px;
   font-weight: 600;
-  color: #f5f5dc;
+  color: var(--color-text-light);
 }
 
 .visibility-description {
@@ -364,13 +364,13 @@
 
 .visibility-button.private {
   background: rgba(158, 158, 158, 0.2);
-  color: #f5f5dc;
+  color: var(--color-text-light);
   border: 1px solid rgba(158, 158, 158, 0.3);
 }
 
 .visibility-button.public {
   background: rgba(76, 175, 80, 0.2);
-  color: #f5f5dc;
+  color: var(--color-text-light);
   border: 1px solid rgba(76, 175, 80, 0.3);
 }
 

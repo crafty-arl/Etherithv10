@@ -10,18 +10,83 @@ const STORAGE_KEYS = {
 }
 
 export class LocalStorage {
+  // Storage quota management
+  static getStorageSize(): number {
+    let totalSize = 0
+    for (let key in localStorage) {
+      if (localStorage.hasOwnProperty(key)) {
+        totalSize += localStorage[key].length + key.length
+      }
+    }
+    return totalSize
+  }
+
+  static getStorageQuota(): number {
+    // Most browsers have 5-10MB localStorage limit
+    return 5 * 1024 * 1024 // 5MB in bytes
+  }
+
+  static isStorageNearLimit(): boolean {
+    const currentSize = this.getStorageSize()
+    const quota = this.getStorageQuota()
+    return currentSize > (quota * 0.8) // 80% of quota
+  }
+
+  static cleanupOldMemories(): void {
+    const memories = this.getAllMemories()
+    if (memories.length === 0) return
+
+    // Sort by timestamp (oldest first)
+    const sortedMemories = memories.sort((a, b) => a.timestamp - b.timestamp)
+    
+    // Remove oldest 20% of memories
+    const memoriesToRemove = Math.floor(sortedMemories.length * 0.2)
+    const memoriesToKeep = sortedMemories.slice(memoriesToRemove)
+    
+    console.log(`🧹 Storage cleanup: Removing ${memoriesToRemove} old memories, keeping ${memoriesToKeep.length}`)
+    localStorage.setItem(STORAGE_KEYS.MEMORIES, JSON.stringify(memoriesToKeep))
+  }
+
+
   // Memory operations
   static saveMemory(memory: Memory): void {
-    const memories = this.getAllMemories()
-    const existingIndex = memories.findIndex(m => m.id === memory.id)
-    
-    if (existingIndex >= 0) {
-      memories[existingIndex] = memory
-    } else {
-      memories.push(memory)
+    try {
+      const memories = this.getAllMemories()
+      const existingIndex = memories.findIndex(m => m.id === memory.id)
+      
+      if (existingIndex >= 0) {
+        memories[existingIndex] = memory
+      } else {
+        memories.push(memory)
+      }
+      
+      localStorage.setItem(STORAGE_KEYS.MEMORIES, JSON.stringify(memories))
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'QuotaExceededError') {
+        console.warn('⚠️ Storage quota exceeded, attempting cleanup...')
+        this.cleanupOldMemories()
+        
+        // Try again after cleanup
+        try {
+          const memories = this.getAllMemories()
+          const existingIndex = memories.findIndex(m => m.id === memory.id)
+          
+          if (existingIndex >= 0) {
+            memories[existingIndex] = memory
+          } else {
+            memories.push(memory)
+          }
+          
+          localStorage.setItem(STORAGE_KEYS.MEMORIES, JSON.stringify(memories))
+          console.log('✅ Memory saved after cleanup')
+        } catch (retryError) {
+          console.error('❌ Still unable to save after cleanup:', retryError)
+          throw new Error('Storage is full. Please clear some data or use a different browser.')
+        }
+      } else {
+        throw error
+      }
     }
-    
-    localStorage.setItem(STORAGE_KEYS.MEMORIES, JSON.stringify(memories))
   }
 
   static getAllMemories(): Memory[] {

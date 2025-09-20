@@ -5,7 +5,8 @@
       "WebFetch(domain:docs.pinata.cloud)",
       "Bash(npm install:*)",
       "Bash(npm test)",
-      "Bash(npm run lint)"
+      "Bash(npm run lint)",
+      "WebFetch(domain:logux.org)"
     ],
     "deny": [],
     "ask": []

@@ -1,23 +1,25 @@
-import React, { useState, useRef } from 'react'
+import React, { useState, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Memory, MemoryUpload } from '../types/memory'
 import { LocalStorage } from '../utils/storage'
 import { IPFSService } from '../utils/ipfs'
+import { AIAnalysisService } from '../utils/ai-analysis'
 import { VisibilityStep } from './VisibilityStep'
 import { VisibilityIndicator } from './VisibilityIndicator'
+import { getNetworkDiscovery } from '../utils/network-discovery'
 
 interface EnhancedMemoryUploadProps {
   onMemoryUploaded?: (memory: Memory) => void
   onClose?: () => void
 }
 
-type UploadStep = 'content' | 'visibility' | 'upload' | 'complete'
+type UploadStep = 'file' | 'description' | 'ai-analysis' | 'content' | 'visibility' | 'upload' | 'complete'
 
 export const EnhancedMemoryUpload: React.FC<EnhancedMemoryUploadProps> = ({
   onMemoryUploaded,
   onClose
 }) => {
-  const [currentStep, setCurrentStep] = useState<UploadStep>('content')
+  const [currentStep, setCurrentStep] = useState<UploadStep>('file')
   const [memoryData, setMemoryData] = useState<Partial<MemoryUpload>>({
     title: '',
     content: '',
@@ -31,11 +33,18 @@ export const EnhancedMemoryUpload: React.FC<EnhancedMemoryUploadProps> = ({
   const [uploadProgress, setUploadProgress] = useState(0)
   const [error, setError] = useState<string | null>(null)
   const [completedMemory, setCompletedMemory] = useState<Memory | null>(null)
+  const [aiAnalysis, setAiAnalysis] = useState<any>(null)
+  const [analyzing, setAnalyzing] = useState(false)
+  const [workerStatus, setWorkerStatus] = useState<string>('unknown')
+  const [storageStatus, setStorageStatus] = useState<string>('unknown')
 
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const steps: { id: UploadStep; title: string; description: string }[] = [
-    { id: 'content', title: 'Content', description: 'Add your memory content' },
+    { id: 'file', title: 'File', description: 'Upload your memory file' },
+    { id: 'description', title: 'Description', description: 'Add title and description' },
+    { id: 'ai-analysis', title: 'AI Analysis', description: 'AI analyzes your content' },
+    { id: 'content', title: 'Content', description: 'Review and edit details' },
     { id: 'visibility', title: 'Visibility', description: 'Choose who can see it' },
     { id: 'upload', title: 'Upload', description: 'Save to your archive' },
     { id: 'complete', title: 'Complete', description: 'Memory saved!' }
@@ -43,18 +52,137 @@ export const EnhancedMemoryUpload: React.FC<EnhancedMemoryUploadProps> = ({
 
   const currentStepIndex = steps.findIndex(step => step.id === currentStep)
 
-  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+  // Check storage status on component mount
+  useEffect(() => {
+    checkStorageStatus()
+  }, [])
+
+  const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    console.log('File select triggered', event.target.files)
     const file = event.target.files?.[0]
     if (file) {
+      console.log('File selected:', file.name, file.size, file.type)
       setSelectedFile(file)
+      setError(null)
 
-      // Auto-fill title if empty
-      if (!memoryData.title) {
+      // Auto-fill basic title from filename
+      setMemoryData(prev => ({
+        ...prev,
+        title: file.name.replace(/\.[^/.]+$/, '') // Remove extension
+      }))
+
+      // Go to description step
+      setCurrentStep('description')
+    } else {
+      console.log('No file selected')
+    }
+  }
+
+  const testAIWorker = async () => {
+    console.log('🧪 Testing AI Worker...')
+    setWorkerStatus('testing')
+    
+    try {
+      const result = await AIAnalysisService.testWorker()
+      if (result.success) {
+        setWorkerStatus('working')
+        console.log('✅ AI Worker is working!')
+      } else {
+        setWorkerStatus('error')
+        console.error('❌ AI Worker test failed:', result.error)
+        setError(`AI Worker test failed: ${result.error}`)
+      }
+    } catch (error) {
+      setWorkerStatus('error')
+      console.error('❌ AI Worker test error:', error)
+      setError(`AI Worker test error: ${error}`)
+    }
+  }
+
+  const checkStorageStatus = () => {
+    const currentSize = LocalStorage.getStorageSize()
+    const quota = LocalStorage.getStorageQuota()
+    const usagePercent = (currentSize / quota) * 100
+    
+    console.log(`💾 Storage status: ${(currentSize / 1024 / 1024).toFixed(2)}MB / ${(quota / 1024 / 1024).toFixed(2)}MB (${usagePercent.toFixed(1)}%)`)
+    
+    if (usagePercent > 90) {
+      setStorageStatus('critical')
+    } else if (usagePercent > 80) {
+      setStorageStatus('warning')
+    } else {
+      setStorageStatus('ok')
+    }
+  }
+
+  const clearStorage = () => {
+    if (confirm('Are you sure you want to clear all stored memories? This cannot be undone.')) {
+      LocalStorage.clearAllData()
+      setStorageStatus('ok')
+      console.log('🧹 Storage cleared')
+    }
+  }
+
+  const analyzeFileWithAI = async (file: File, userDescription: string, userNote: string) => {
+    setAnalyzing(true)
+    setError(null)
+
+    try {
+      const analysis = await AIAnalysisService.analyzeMemory({
+        file,
+        fileType: getFileType(file),
+        fileName: file.name,
+        content: userDescription,
+        title: memoryData.title,
+        memoryNote: userNote
+      })
+
+      if (analysis.success) {
+        setAiAnalysis(analysis.analysis)
+        
+        // Update form with AI suggestions while preserving user input
         setMemoryData(prev => ({
           ...prev,
-          title: file.name.replace(/\.[^/.]+$/, '') // Remove extension
+          title: analysis.analysis.title || prev.title,
+          content: userDescription, // Keep user's description
+          memoryNote: userNote, // Keep user's note
+          tags: analysis.analysis.tags || prev.tags || []
         }))
+      } else {
+        throw new Error('AI analysis failed')
       }
+    } catch (error) {
+      console.error('AI analysis failed:', error)
+      setError('AI analysis failed, but you can still proceed with manual entry')
+      
+      // Keep user input as fallback
+      setMemoryData(prev => ({
+        ...prev,
+        content: userDescription,
+        memoryNote: userNote
+      }))
+    } finally {
+      setAnalyzing(false)
+      setCurrentStep('content')
+    }
+  }
+
+  const handleDescriptionSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+
+    if (!memoryData.title || !memoryData.content) {
+      setError('Please provide both a title and description')
+      return
+    }
+
+    setError(null)
+    
+    // Start AI analysis with user-provided description and note
+    if (selectedFile) {
+      setCurrentStep('ai-analysis')
+      await analyzeFileWithAI(selectedFile, memoryData.content, memoryData.memoryNote || '')
+    } else {
+      setCurrentStep('visibility')
     }
   }
 
@@ -170,6 +298,23 @@ export const EnhancedMemoryUpload: React.FC<EnhancedMemoryUploadProps> = ({
       // Save locally
       LocalStorage.saveMemory(memory)
 
+      // Share with network if public
+      if (visibility === 'public') {
+        try {
+          const networkDiscovery = getNetworkDiscovery()
+          await networkDiscovery.sharePublicMemory(memoryId, {
+            title: memory.title,
+            content: memory.content,
+            timestamp: memory.timestamp,
+            fileType: memory.fileType,
+            tags: memory.tags
+          })
+        } catch (networkError) {
+          console.warn('Failed to share with network:', networkError)
+          // Continue even if network sharing fails
+        }
+      }
+
       setUploadProgress(100)
       setCompletedMemory(memory)
       setCurrentStep('complete')
@@ -208,6 +353,238 @@ export const EnhancedMemoryUpload: React.FC<EnhancedMemoryUploadProps> = ({
     })
   }
 
+  const renderFileStep = () => (
+    <div className="step-content">
+      <div className="step-header">
+        <h2>Upload Your Memory</h2>
+        <p>
+          Choose a file to preserve in your memory vault. Our AI will analyze it and suggest details.
+        </p>
+      </div>
+
+      <div className="file-upload-section">
+        {/* AI Worker Status */}
+        <div className="worker-status-section">
+          <h3>AI Worker Status</h3>
+          <div className="worker-status">
+            <span className={`status-indicator ${workerStatus}`}>
+              {workerStatus === 'unknown' && '❓ Unknown'}
+              {workerStatus === 'testing' && '🔄 Testing...'}
+              {workerStatus === 'working' && '✅ Working'}
+              {workerStatus === 'error' && '❌ Error'}
+            </span>
+            <button
+              type="button"
+              onClick={testAIWorker}
+              className="test-worker-btn"
+              disabled={workerStatus === 'testing'}
+            >
+              {workerStatus === 'testing' ? 'Testing...' : 'Test AI Worker'}
+            </button>
+          </div>
+        </div>
+
+        {/* Storage Status */}
+        <div className="storage-status-section">
+          <h3>Storage Status</h3>
+          <div className="storage-status">
+            <span className={`status-indicator ${storageStatus}`}>
+              {storageStatus === 'unknown' && '❓ Unknown'}
+              {storageStatus === 'ok' && '✅ OK'}
+              {storageStatus === 'warning' && '⚠️ Warning'}
+              {storageStatus === 'critical' && '🚨 Critical'}
+            </span>
+            <button
+              type="button"
+              onClick={checkStorageStatus}
+              className="test-worker-btn"
+            >
+              Check Storage
+            </button>
+            {storageStatus === 'critical' && (
+              <button
+                type="button"
+                onClick={clearStorage}
+                className="clear-storage-btn"
+              >
+                Clear All Data
+              </button>
+            )}
+          </div>
+        </div>
+
+        <div className="file-upload-area">
+          <button
+            type="button"
+            onClick={() => {
+              console.log('File upload button clicked', fileInputRef.current)
+              fileInputRef.current?.click()
+            }}
+            className="file-upload-btn"
+          >
+            📁 Choose File
+          </button>
+          <p className="file-upload-hint">
+            Drag and drop a file here, or click to browse
+          </p>
+          <p className="file-upload-types">
+            Supports images, videos, audio, documents, and text files
+          </p>
+        </div>
+        
+        <input
+          ref={fileInputRef}
+          type="file"
+          onChange={handleFileSelect}
+          className="file-input"
+          accept="*/*"
+          style={{ display: 'none' }}
+        />
+
+        {selectedFile && (
+          <div className="file-preview">
+            <div className="file-info">
+              <span className="file-name">{selectedFile.name}</span>
+              <span className="file-size">
+                {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
+              </span>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {error && (
+        <div className="error-message">
+          {error}
+        </div>
+      )}
+    </div>
+  )
+
+  const renderDescriptionStep = () => (
+    <div className="step-content">
+      <div className="step-header">
+        <h2>Describe Your Memory</h2>
+        <p>
+          Add a title and description for your memory. Our AI will use this information to enhance your memory with additional insights.
+        </p>
+      </div>
+
+      {selectedFile && (
+        <div className="file-preview-section">
+          <div className="file-info">
+            <span className="file-name">{selectedFile.name}</span>
+            <span className="file-size">
+              {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
+            </span>
+          </div>
+        </div>
+      )}
+
+      <form onSubmit={handleDescriptionSubmit} className="upload-form">
+        {/* Title */}
+        <div className="form-group">
+          <label>
+            Memory Title *
+          </label>
+          <input
+            type="text"
+            value={memoryData.title || ''}
+            onChange={(e) => setMemoryData(prev => ({ ...prev, title: e.target.value }))}
+            placeholder="Give your memory a descriptive title..."
+            required
+          />
+        </div>
+
+        {/* Description */}
+        <div className="form-group">
+          <label>
+            Description *
+          </label>
+          <textarea
+            value={memoryData.content || ''}
+            onChange={(e) => setMemoryData(prev => ({ ...prev, content: e.target.value }))}
+            placeholder="Describe what this memory is about, what happened, or why it's important to you..."
+            rows={6}
+            required
+          />
+        </div>
+
+        {/* Personal Note */}
+        <div className="form-group">
+          <label>
+            Personal Note (Optional)
+          </label>
+          <textarea
+            value={memoryData.memoryNote || ''}
+            onChange={(e) => setMemoryData(prev => ({ ...prev, memoryNote: e.target.value }))}
+            placeholder="Add any personal thoughts, feelings, or context about this memory..."
+            rows={3}
+          />
+        </div>
+
+        {error && (
+          <div className="error-message">
+            {error}
+          </div>
+        )}
+
+        <div className="step-navigation">
+          <button
+            type="button"
+            onClick={() => setCurrentStep('file')}
+            className="step-btn prev-btn"
+          >
+            Back to File
+          </button>
+          <button
+            type="submit"
+            className="step-btn next-btn"
+          >
+            Next: AI Analysis
+          </button>
+        </div>
+      </form>
+    </div>
+  )
+
+  const renderAIAnalysisStep = () => (
+    <div className="step-content">
+      <div className="step-header">
+        <h2>AI Analysis in Progress</h2>
+        <p>
+          Our AI is analyzing your file to suggest a title, tags, and description...
+        </p>
+      </div>
+
+      <div className="ai-analysis-progress">
+        <div className="analysis-spinner">
+          <div className="spinner"></div>
+        </div>
+        <div className="analysis-steps">
+          <div className="analysis-step active">
+            <span className="step-icon">🔍</span>
+            <span>Analyzing content...</span>
+          </div>
+          <div className="analysis-step">
+            <span className="step-icon">🏷️</span>
+            <span>Generating tags...</span>
+          </div>
+          <div className="analysis-step">
+            <span className="step-icon">📝</span>
+            <span>Creating description...</span>
+          </div>
+        </div>
+      </div>
+
+      {error && (
+        <div className="error-message">
+          {error}
+        </div>
+      )}
+    </div>
+  )
+
   const renderStepIndicator = () => (
     <div className="step-progress">
       {steps.map((step, index) => (
@@ -225,11 +602,44 @@ export const EnhancedMemoryUpload: React.FC<EnhancedMemoryUploadProps> = ({
   const renderContentStep = () => (
     <div className="step-content">
       <div className="step-header">
-        <h2>Create New Memory</h2>
+        <h2>Review AI Suggestions</h2>
         <p>
-          Add content to preserve in your personal archive
+          Our AI has analyzed your file and suggested details. You can edit these before saving.
         </p>
       </div>
+
+      {/* AI Analysis Results */}
+      {aiAnalysis && (
+        <div className="ai-suggestions-panel">
+          <h3>🤖 AI Analysis Results</h3>
+          <div className="ai-suggestions-grid">
+            <div className="suggestion-item">
+              <label>Confidence Score</label>
+              <div className="confidence-bar">
+                <div 
+                  className="confidence-fill" 
+                  style={{ width: `${aiAnalysis.confidence || 0}%` }}
+                ></div>
+                <span>{aiAnalysis.confidence || 0}%</span>
+              </div>
+            </div>
+            {aiAnalysis.sentiment && (
+              <div className="suggestion-item">
+                <label>Sentiment</label>
+                <span className={`sentiment-badge ${aiAnalysis.sentiment.sentiment}`}>
+                  {aiAnalysis.sentiment.sentiment} ({Math.round(aiAnalysis.sentiment.score * 100)}%)
+                </span>
+              </div>
+            )}
+            {aiAnalysis.categories && (
+              <div className="suggestion-item">
+                <label>Category</label>
+                <span className="category-badge">{aiAnalysis.categories}</span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       <form onSubmit={handleContentSubmit} className="upload-form">
         {/* Title */}
@@ -273,33 +683,29 @@ export const EnhancedMemoryUpload: React.FC<EnhancedMemoryUploadProps> = ({
           />
         </div>
 
-        {/* File Upload */}
-        <div className="form-group">
-          <label>
-            Attach File (Optional)
-          </label>
-          <div className="file-upload-area">
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              className="file-upload-btn"
-            >
-              Choose File
-            </button>
-            {selectedFile && (
-              <span className="file-info">
-                {selectedFile.name} ({(selectedFile.size / 1024).toFixed(1)} KB)
+        {/* File Info Display */}
+        {selectedFile && (
+          <div className="form-group">
+            <label>Selected File</label>
+            <div className="file-info-display">
+              <span className="file-name">{selectedFile.name}</span>
+              <span className="file-size">
+                {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
               </span>
-            )}
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedFile(null)
+                  setAiAnalysis(null)
+                  setCurrentStep('file')
+                }}
+                className="change-file-btn"
+              >
+                Change File
+              </button>
+            </div>
           </div>
-          <input
-            ref={fileInputRef}
-            type="file"
-            onChange={handleFileSelect}
-            className="file-input"
-            accept="*/*"
-          />
-        </div>
+        )}
 
         {/* Tags */}
         <div className="form-group">
@@ -472,6 +878,9 @@ export const EnhancedMemoryUpload: React.FC<EnhancedMemoryUploadProps> = ({
               exit={{ opacity: 0, x: -20 }}
               transition={{ duration: 0.2 }}
             >
+              {currentStep === 'file' && renderFileStep()}
+              {currentStep === 'description' && renderDescriptionStep()}
+              {currentStep === 'ai-analysis' && renderAIAnalysisStep()}
               {currentStep === 'content' && renderContentStep()}
               {currentStep === 'visibility' && (
                 <VisibilityStep

@@ -10,7 +10,7 @@ export default function App({ Component, pageProps: { session, ...pageProps } }:
       <SessionProvider session={session}>
         <Head>
           <meta name="viewport" content="width=device-width, initial-scale=1" />
-          <meta name="theme-color" content="#000000" />
+          <meta name="theme-color" content="#D4AF37" />
           <meta name="description" content="Your work, untouchable. From upload to eternity." />
           <link rel="manifest" href="/manifest.json" />
           <link rel="apple-touch-icon" href="/icon.svg" />

@@ -5,6 +5,7 @@ import { useSession } from 'next-auth/react'
 import { motion, AnimatePresence } from 'framer-motion'
 import DiscordConnect from '../components/DiscordConnect'
 import IPFSStatus from '../components/IPFSStatus'
+import NetworkMemories from '../components/NetworkMemories'
 
 export default function Home() {
   const { data: session } = useSession()
@@ -157,7 +158,11 @@ export default function Home() {
               variants={logoVariants}
               whileHover="hover"
             >
-              📚
+              <img 
+                src="/image.png" 
+                alt="Etherith Logo" 
+                className="logo-image"
+              />
             </motion.div>
             <motion.h1 
               className="etherith-title"
@@ -178,6 +183,7 @@ export default function Home() {
             variants={itemVariants}
           >
             <motion.h2
+              className="welcome-heading"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.3, duration: 0.6 }}
@@ -185,6 +191,7 @@ export default function Home() {
               Preserve. Empower. Remember.
             </motion.h2>
             <motion.p
+              className="welcome-description"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.4, duration: 0.6 }}
@@ -195,6 +202,8 @@ export default function Home() {
 
 
           <DiscordConnect />
+
+          <NetworkMemories />
 
           {session && (
             <div className="vault-access">
@@ -235,6 +244,7 @@ export default function Home() {
           >
             <motion.h3 
               id="features-heading"
+              className="features-heading"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.5, duration: 0.6 }}
@@ -286,8 +296,8 @@ export default function Home() {
                   >
                     {feature.icon}
                   </motion.div>
-                  <h4>{feature.title}</h4>
-                  <p>{feature.description}</p>
+                  <h4 className="feature-title">{feature.title}</h4>
+                  <p className="feature-description">{feature.description}</p>
                 </motion.div>
               ))}
             </div>

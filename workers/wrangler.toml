@@ -1,0 +1,9 @@
+name = "ai-memory-analyzer"
+main = "ai-memory-analyzer.js"
+compatibility_date = "2024-01-01"
+
+[ai]
+binding = "AI"
+
+# Note: CPU limits and custom routes are not supported on the Free plan
+# The worker will be available at: https://ai-memory-analyzer.your-subdomain.workers.dev

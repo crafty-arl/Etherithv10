@@ -1,0 +1,18 @@
+{
+  "name": "Etherith - Permanent Storage, Future-Proofed",
+  "short_name": "Etherith",
+  "description": "Your work, untouchable. From upload to eternity.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0D0D0D",
+  "theme_color": "#00E5C1",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

@@ -7,9 +7,12 @@ import { EnhancedMemoryUpload } from '../components/EnhancedMemoryUpload'
 import MemoryViewer from '../components/MemoryViewer'
 import { Memory, SearchFilters, UserProfile } from '../types/memory'
 import { LocalStorage } from '../utils/storage'
+import { useDXOS } from '../lib/dxos/context'
+import { getNetworkDiscovery, NetworkUser } from '../utils/network-discovery'
 
 export default function VaultPage() {
   const { data: session, status } = useSession()
+  const { client, identity, isConnected } = useDXOS()
   const router = useRouter()
   const [memories, setMemories] = useState<Memory[]>([])
   const [filteredMemories, setFilteredMemories] = useState<Memory[]>([])
@@ -21,6 +24,8 @@ export default function VaultPage() {
   const [viewMode, setViewMode] = useState<'feed' | 'grid'>('feed')
   const [selectedFileType, setSelectedFileType] = useState<string>('all')
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [onlineUsers, setOnlineUsers] = useState<NetworkUser[]>([])
+  const [networkDiscovery, setNetworkDiscovery] = useState<any>(null)
   const [stats, setStats] = useState({
     totalMemories: 0,
     publicMemories: 0,
@@ -40,7 +45,61 @@ export default function VaultPage() {
     createUserProfile()
     loadMemories()
     loadStats()
+    initializeNetworkDiscovery()
   }, [session, status, router])
+
+  // Initialize network discovery and online users monitoring
+  useEffect(() => {
+    if (client && identity) {
+      initializeNetworkDiscovery()
+    }
+  }, [client, identity])
+
+  // Set up periodic online users refresh
+  useEffect(() => {
+    const interval = setInterval(() => {
+      updateOnlineUsers()
+    }, 5000) // Update every 5 seconds
+
+    return () => clearInterval(interval)
+  }, [networkDiscovery])
+
+  const initializeNetworkDiscovery = () => {
+    try {
+      console.log('🌐 [DEBUG] Initializing network discovery in memory vault')
+      const discovery = getNetworkDiscovery()
+      setNetworkDiscovery(discovery)
+      updateOnlineUsers()
+    } catch (error) {
+      console.error('Failed to initialize network discovery:', error)
+    }
+  }
+
+  const updateOnlineUsers = async () => {
+    if (!networkDiscovery) return
+
+    try {
+      // Get online users from network discovery
+      const users = networkDiscovery.getNetworkUsers()
+      setOnlineUsers(users)
+
+      // Also get online users from DXOS if available
+      if (client && isConnected) {
+        try {
+          const dxosUsers = await client.getOnlineUsers()
+          console.log('👥 [DEBUG] Online users update:', {
+            networkUsers: users.length,
+            dxosUsers: dxosUsers?.length || 0,
+            totalUnique: users.length
+          })
+        } catch (dxosError) {
+          console.warn('Failed to get DXOS online users:', dxosError)
+        }
+      }
+    } catch (error) {
+      console.warn('Failed to update online users:', error)
+    }
+  }
 
   useEffect(() => {
     performSearch()
@@ -511,6 +570,50 @@ export default function VaultPage() {
                 <div className="insight-label">Shared Public</div>
               </div>
             </div>
+          </div>
+
+          <div className="online-users-section">
+            <h3>👥 Who's Online</h3>
+            <div className="dxos-status">
+              <div className={`status-indicator ${isConnected ? 'online' : 'offline'}`}></div>
+              <span>{isConnected ? 'DXOS Connected' : 'DXOS Offline'}</span>
+            </div>
+            <div className="online-users-list">
+              {onlineUsers.length === 0 ? (
+                <div className="no-users">
+                  <span className="empty-icon">👤</span>
+                  <span className="empty-text">No other users online</span>
+                </div>
+              ) : (
+                onlineUsers.map((user) => (
+                  <div key={user.id} className="online-user-item">
+                    <div className="user-avatar">
+                      <div className="avatar-placeholder">
+                        {user.name.charAt(0).toUpperCase()}
+                      </div>
+                      <div className="online-dot"></div>
+                    </div>
+                    <div className="user-info">
+                      <div className="user-name">{user.name}</div>
+                      <div className="user-meta">
+                        <span className="user-ip">{user.ip}</span>
+                        <span className="user-memories">
+                          {user.publicMemories.length} public memories
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+            {identity && (
+              <div className="current-user-info">
+                <div className="your-status">
+                  <div className="status-indicator online"></div>
+                  <span>You ({identity.displayName})</span>
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="ipfs-status-section">

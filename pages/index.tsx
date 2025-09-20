@@ -1,24 +1,20 @@
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/router'
 import Head from 'next/head'
 import Link from 'next/link'
 import { useSession } from 'next-auth/react'
 import { motion, AnimatePresence } from 'framer-motion'
 import DiscordConnect from '../components/DiscordConnect'
-import IPFSStatus from '../components/IPFSStatus'
-import NetworkMemories from '../components/NetworkMemories'
 import DXOSIdentityManager from '../components/DXOSIdentityManager'
-import DXOSMemoryManager from '../components/DXOSMemoryManager'
 import { useIdentity } from '../lib/dxos/context'
 
 export default function Home() {
   const { data: session } = useSession()
   const { hasIdentity } = useIdentity()
+  const router = useRouter()
   const [isOnline, setIsOnline] = useState(true)
   const [installPrompt, setInstallPrompt] = useState<any>(null)
   const [isInstalled, setIsInstalled] = useState(false)
-  const [ipfsConnected, setIpfsConnected] = useState(true)
-  const [ipfsReplicas, setIpfsReplicas] = useState(3)
-  const [selectedMemory, setSelectedMemory] = useState<any>(null)
 
   useEffect(() => {
     // Check online status
@@ -47,6 +43,14 @@ export default function Home() {
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
     }
   }, [])
+
+  // Redirect to memory vault if user is authenticated
+  useEffect(() => {
+    if (session && hasIdentity) {
+      console.log('🚪 [DEBUG] User is authenticated and has DXOS identity, redirecting to memory vault')
+      router.push('/memory-vault')
+    }
+  }, [session, hasIdentity, router])
 
   const handleInstallClick = async () => {
     if (installPrompt) {
@@ -201,7 +205,10 @@ export default function Home() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.4, duration: 0.6 }}
             >
-              Connect your Discord account to access a local-first archival ecosystem where your digital knowledge lives with you first, backed by permanence through IPFS and blockchain technology.
+              {session && hasIdentity
+                ? "Redirecting to your memory vault..."
+                : "Connect your Discord account to access a local-first archival ecosystem where your digital knowledge lives with you first, backed by permanence through IPFS and blockchain technology."
+              }
             </motion.p>
           </motion.div>
 
@@ -215,35 +222,17 @@ export default function Home() {
             }}
           />
 
-          {hasIdentity && (
+          {!session && !hasIdentity && (
             <motion.div
-              className="dxos-social-section"
-              initial={{ opacity: 0, y: 30 }}
+              className="login-prompt"
+              initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.2 }}
+              transition={{ delay: 0.6, duration: 0.6 }}
             >
-              <DXOSMemoryManager
-                className="public-memories"
-                visibility="public"
-                onMemorySelect={setSelectedMemory}
-              />
+              <p className="login-description">
+                Start by connecting your Discord account and creating your digital identity to access the memory vault.
+              </p>
             </motion.div>
-          )}
-
-          <NetworkMemories />
-
-          {session && (
-            <div className="vault-access">
-              <Link
-                href="/memory-vault"
-                className="vault-button"
-                role="button"
-                aria-label="Access your personal memory vault"
-              >
-                <span className="vault-icon" aria-hidden="true">🔒</span>
-                Access Memory Vault
-              </Link>
-            </div>
           )}
 
           {installPrompt && !isInstalled && (
@@ -264,71 +253,73 @@ export default function Home() {
             </div>
           )}
 
-          <motion.section 
-            className="etherith-features" 
-            aria-labelledby="features-heading"
-            variants={itemVariants}
-          >
-            <motion.h3 
-              id="features-heading"
-              className="features-heading"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.5, duration: 0.6 }}
+          {!session && !hasIdentity && (
+            <motion.section
+              className="etherith-features"
+              aria-labelledby="features-heading"
+              variants={itemVariants}
             >
-              Peer-to-Peer Social Media Ecosystem
-            </motion.h3>
-            <div className="features-grid" role="list">
-              {[
-                {
-                  icon: "🌐",
-                  title: "Decentralized Network",
-                  description: "No central servers, truly peer-to-peer social media"
-                },
-                {
-                  icon: "🔐",
-                  title: "Sovereign Identity",
-                  description: "Own your digital identity with cryptographic security"
-                },
-                {
-                  icon: "🤝",
-                  title: "Real-time Collaboration",
-                  description: "Instant synchronization across all connected peers"
-                },
-                {
-                  icon: "🏠",
-                  title: "Local-First",
-                  description: "Your data lives with you, backed by IPFS permanence"
-                }
-              ].map((feature, index) => (
-                <motion.div 
-                  key={index}
-                  className="feature-card" 
-                  role="listitem"
-                  variants={featureVariants}
-                  initial="hidden"
-                  animate="visible"
-                  whileHover="hover"
-                  custom={index}
-                >
-                  <motion.div 
-                    className="feature-icon" 
-                    role="img" 
-                    aria-label={`${feature.title} icon`}
-                    whileHover={{ 
-                      scale: 1.2, 
-                      rotate: 10,
-                      transition: { duration: 0.2 }
-                    }}
+              <motion.h3
+                id="features-heading"
+                className="features-heading"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.5, duration: 0.6 }}
+              >
+                Peer-to-Peer Social Media Ecosystem
+              </motion.h3>
+              <div className="features-grid" role="list">
+                {[
+                  {
+                    icon: "🌐",
+                    title: "Decentralized Network",
+                    description: "No central servers, truly peer-to-peer social media"
+                  },
+                  {
+                    icon: "🔐",
+                    title: "Sovereign Identity",
+                    description: "Own your digital identity with cryptographic security"
+                  },
+                  {
+                    icon: "🤝",
+                    title: "Real-time Collaboration",
+                    description: "Instant synchronization across all connected peers"
+                  },
+                  {
+                    icon: "🏠",
+                    title: "Local-First",
+                    description: "Your data lives with you, backed by IPFS permanence"
+                  }
+                ].map((feature, index) => (
+                  <motion.div
+                    key={index}
+                    className="feature-card"
+                    role="listitem"
+                    variants={featureVariants}
+                    initial="hidden"
+                    animate="visible"
+                    whileHover="hover"
+                    custom={index}
                   >
-                    {feature.icon}
+                    <motion.div
+                      className="feature-icon"
+                      role="img"
+                      aria-label={`${feature.title} icon`}
+                      whileHover={{
+                        scale: 1.2,
+                        rotate: 10,
+                        transition: { duration: 0.2 }
+                      }}
+                    >
+                      {feature.icon}
+                    </motion.div>
+                    <h4 className="feature-title">{feature.title}</h4>
+                    <p className="feature-description">{feature.description}</p>
                   </motion.div>
-                  <h4 className="feature-title">{feature.title}</h4>
-                  <p className="feature-description">{feature.description}</p>
-                </motion.div>
-              ))}
-            </div>
-          </motion.section>
+                ))}
+              </div>
+            </motion.section>
+          )}
         </main>
       </motion.div>
     </>

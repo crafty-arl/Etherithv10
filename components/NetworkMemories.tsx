@@ -4,6 +4,7 @@ import { useNetworkDiscovery } from '../hooks/useNetworkDiscovery';
 import { NetworkMemory, NetworkUser } from '../utils/network-discovery';
 import MemoryViewer from './MemoryViewer';
 import { Memory } from '../types/memory';
+import SafeTimestamp from './SafeTimestamp';
 
 interface NetworkMemoriesProps {
   className?: string;
@@ -20,16 +21,15 @@ export default function NetworkMemories({ className = '' }: NetworkMemoriesProps
   } = useNetworkDiscovery();
 
   const [selectedUser, setSelectedUser] = useState<string | null>(null);
-  const [showAllMemories, setShowAllMemories] = useState(false);
   const [selectedMemory, setSelectedMemory] = useState<Memory | null>(null);
+  const [visibleCount, setVisibleCount] = useState(6);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
 
-  const filteredMemories = selectedUser 
+  const filteredMemories = selectedUser
     ? publicMemories.filter(memory => memory.owner === selectedUser)
     : publicMemories;
 
-  const displayedMemories = showAllMemories 
-    ? filteredMemories 
-    : filteredMemories.slice(0, 6);
+  const displayedMemories = filteredMemories.slice(0, visibleCount);
 
   const getUserName = (userId: string): string => {
     const user = networkUsers.find(u => u.id === userId) || localUser;
@@ -40,19 +40,7 @@ export default function NetworkMemories({ className = '' }: NetworkMemoriesProps
     return source === 'local' ? '🏠' : '🌐';
   };
 
-  const formatTimestamp = (timestamp: number): string => {
-    const date = new Date(timestamp);
-    const now = new Date();
-    const diffInHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60);
-
-    if (diffInHours < 1) {
-      return 'Just now';
-    } else if (diffInHours < 24) {
-      return `${Math.floor(diffInHours)}h ago`;
-    } else {
-      return date.toLocaleDateString();
-    }
-  };
+  // Removed formatTimestamp function - now using SafeTimestamp component
 
   const convertNetworkMemoryToMemory = (networkMemory: NetworkMemory): Memory => {
     return {
@@ -163,7 +151,7 @@ export default function NetworkMemories({ className = '' }: NetworkMemoriesProps
                   <div className="memory-owner">
                     <span className="owner-name">{getUserName(memory.owner)}</span>
                     <span className="memory-timestamp">
-                      {formatTimestamp(memory.timestamp)}
+                      <SafeTimestamp timestamp={memory.timestamp} format="relative" />
                     </span>
                   </div>
                 </div>
@@ -195,15 +183,22 @@ export default function NetworkMemories({ className = '' }: NetworkMemoriesProps
         )}
       </AnimatePresence>
 
-      {filteredMemories.length > 6 && (
+      {visibleCount < filteredMemories.length && (
         <div className="load-more-section">
           <button
             className="load-more-button"
-            onClick={() => setShowAllMemories(!showAllMemories)}
+            onClick={() => {
+              setIsLoadingMore(true);
+              setTimeout(() => {
+                setVisibleCount(prev => Math.min(prev + 6, filteredMemories.length));
+                setIsLoadingMore(false);
+              }, 300);
+            }}
+            disabled={isLoadingMore}
           >
-            {showAllMemories 
-              ? 'Show Less' 
-              : `Show All ${filteredMemories.length} Memories`
+            {isLoadingMore
+              ? 'Loading...'
+              : `Load ${Math.min(6, filteredMemories.length - visibleCount)} More`
             }
           </button>
         </div>

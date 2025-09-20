@@ -5,6 +5,7 @@
 
 import React, { createContext, useContext, useEffect, useState, useCallback, ReactNode } from 'react'
 import { EtherithDXOSClient, dxosClient, UserProfile, Memory, Connection, Community, Notification } from './client'
+import { getNetworkDiscovery } from '../../utils/network-discovery'
 
 // Context types
 interface DXOSContextType {
@@ -17,7 +18,7 @@ interface DXOSContextType {
 
   // Methods
   initialize: () => Promise<void>
-  createIdentity: (displayName?: string) => Promise<any>
+  createIdentity: (displayName?: string, discordData?: any) => Promise<any>
   createSpace: (name?: string) => Promise<any>
   joinSpace: (invitationCode: string, authCode?: string) => Promise<void>
   setCurrentSpace: (space: any) => void
@@ -56,62 +57,155 @@ export function DXOSProvider({ children, autoInitialize = true }: DXOSProviderPr
   const initialize = useCallback(async () => {
     try {
       setError(null)
-      console.log('🔄 Initializing DXOS...')
+      console.log('🔄 [DEBUG] Initializing DXOS from context...')
 
       await dxosClient.initialize()
       setIsInitialized(true)
 
       // Check for existing identity
+      console.log('🔍 [DEBUG] Checking for existing identity...')
       const existingIdentity = dxosClient.getIdentity()
       if (existingIdentity) {
         setIdentity(existingIdentity)
         setIsConnected(true)
-        console.log('👤 Found existing identity:', existingIdentity.displayName)
+        console.log('👤 [DEBUG] Found existing identity:', {
+          id: existingIdentity.id,
+          displayName: existingIdentity.displayName,
+          timestamp: new Date().toISOString()
+        })
+      } else {
+        console.log('🚫 [DEBUG] No existing identity found')
       }
 
       // Load available spaces
+      console.log('🌌 [DEBUG] Loading available spaces...')
       const availableSpaces = dxosClient.getSpaces()
       setSpaces(availableSpaces)
+      console.log(`📊 [DEBUG] Found ${availableSpaces.length} space(s)`)
 
-      if (availableSpaces.length > 0 && !currentSpace) {
-        setCurrentSpace(availableSpaces[0])
+      // Set current space if none exists and we have spaces
+      if (availableSpaces.length > 0) {
+        const currentCurrentSpace = currentSpace // Capture current state
+        if (!currentCurrentSpace) {
+          setCurrentSpace(availableSpaces[0])
+          console.log('🎯 [DEBUG] Set current space to:', availableSpaces[0].id)
+        }
       }
 
-      console.log('✅ DXOS initialized successfully')
+      // Start network monitoring
+      console.log('📡 [DEBUG] Starting network monitoring...')
+      const monitoringInterval = dxosClient.startNetworkMonitoring(30000)
+
+      // Clean up monitoring on unmount (stored in a ref if needed)
+      if (typeof window !== 'undefined') {
+        (window as any).dxosMonitoringInterval = monitoringInterval
+      }
+
+      console.log('✅ [DEBUG] DXOS context initialization completed successfully')
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to initialize DXOS'
       setError(errorMessage)
-      console.error('❌ DXOS initialization failed:', err)
+      console.error('❌ [DEBUG] DXOS context initialization failed:', {
+        error: errorMessage,
+        stack: err instanceof Error ? err.stack : 'No stack trace',
+        timestamp: new Date().toISOString()
+      })
     }
-  }, [currentSpace])
+  }, [])
 
   /**
-   * Create new identity
+   * Create new identity with Discord integration
    */
-  const createIdentity = useCallback(async (displayName?: string) => {
+  const createIdentity = useCallback(async (displayName?: string, discordData?: any) => {
+    const identityName = displayName || 'Anonymous'
+
     try {
       setError(null)
-      const newIdentity = await dxosClient.createIdentity(displayName)
+
+      console.log('🎆 [DEBUG] Creating DXOS identity from context:', {
+        displayName: identityName,
+        hasDiscordData: !!discordData,
+        discordId: discordData?.discordId,
+        timestamp: new Date().toISOString()
+      })
+
+      const newIdentity = await dxosClient.createIdentity(identityName)
       setIdentity(newIdentity)
       setIsConnected(true)
 
-      // Create user profile in DXOS
-      if (currentSpace) {
+      console.log('✅ [DEBUG] Identity created and state updated:', {
+        identityId: newIdentity.id,
+        displayName: newIdentity.displayName,
+        isConnected: true
+      })
+
+      // Update network discovery with the new identity
+      const networkDiscovery = getNetworkDiscovery()
+      networkDiscovery.updateLocalUserFromIdentity({
+        id: newIdentity.id,
+        displayName: newIdentity.displayName
+      })
+
+      // Create enhanced user profile with Discord linkage
+      let spaceForProfile = currentSpace
+
+      // If no current space exists, create one
+      if (!spaceForProfile) {
+        console.log('🌌 [DEBUG] No current space found, creating a new space for user profile...')
+        try {
+          spaceForProfile = await createSpace(`${identityName}'s Space`)
+          console.log('✅ [DEBUG] New space created for user profile:', spaceForProfile.id)
+        } catch (spaceError) {
+          console.error('❌ [DEBUG] Failed to create space for profile:', spaceError)
+          // Continue without space, but log the issue
+        }
+      }
+
+      if (spaceForProfile) {
         const profile: UserProfile = {
           id: newIdentity.id,
-          displayName: newIdentity.displayName || displayName || 'Anonymous',
+          displayName: identityName,
           joinedAt: Date.now(),
-          lastActive: Date.now()
+          lastActive: Date.now(),
+          // Add Discord metadata if available
+          ...(discordData && {
+            discordId: discordData.discordId,
+            discordUsername: discordData.username,
+            avatar: discordData.avatar
+          })
         }
 
-        await dxosClient.addObject(currentSpace, profile)
+        console.log('💾 [DEBUG] Storing enhanced user profile in DXOS space:', {
+          profile,
+          spaceId: spaceForProfile.id,
+          hasDiscordLink: !!discordData
+        })
+
+        await dxosClient.addObject(spaceForProfile, profile)
         setUserProfile(profile)
+
+        // Log successful profile creation
+        console.log('✅ [DEBUG] User profile stored successfully in space')
+
+        // Check online users after profile creation
+        setTimeout(async () => {
+          await dxosClient.getOnlineUsers()
+        }, 2000)
+      } else {
+        console.log('⚠️ [DEBUG] No space available for profile storage after attempting to create one')
       }
 
       return newIdentity
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to create identity'
       setError(errorMessage)
+      console.error('❌ [DEBUG] Identity creation failed in context:', {
+        error: errorMessage,
+        displayName: identityName,
+        hasCurrentSpace: !!currentSpace,
+        stack: err instanceof Error ? err.stack : 'No stack trace',
+        timestamp: new Date().toISOString()
+      })
       throw err
     }
   }, [currentSpace])
@@ -296,11 +390,11 @@ export function useQuery<T = any>(filter?: any): {
     } finally {
       setLoading(false)
     }
-  }, [client, currentSpace, filter])
+  }, [client, currentSpace])
 
   useEffect(() => {
     fetchData()
-  }, [fetchData])
+  }, [fetchData, filter])
 
   return {
     data,

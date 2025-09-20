@@ -7,6 +7,7 @@ import { AIAnalysisService } from '../utils/ai-analysis'
 import { VisibilityStep } from './VisibilityStep'
 import { VisibilityIndicator } from './VisibilityIndicator'
 import { getNetworkDiscovery } from '../utils/network-discovery'
+import { useDXOS } from '../lib/dxos/context'
 
 interface EnhancedMemoryUploadProps {
   onMemoryUploaded?: (memory: Memory) => void
@@ -19,6 +20,7 @@ export const EnhancedMemoryUpload: React.FC<EnhancedMemoryUploadProps> = ({
   onMemoryUploaded,
   onClose
 }) => {
+  const { client, currentSpace, identity, userProfile } = useDXOS()
   const [currentStep, setCurrentStep] = useState<UploadStep>('file')
   const [memoryData, setMemoryData] = useState<Partial<MemoryUpload>>({
     title: '',
@@ -139,15 +141,25 @@ export const EnhancedMemoryUpload: React.FC<EnhancedMemoryUploadProps> = ({
 
       if (analysis.success) {
         setAiAnalysis(analysis.analysis)
-        
-        // Update form with AI suggestions while preserving user input
+
+        // Update form with AI suggestions, enhancing user input
         setMemoryData(prev => ({
           ...prev,
           title: analysis.analysis.title || prev.title,
-          content: userDescription, // Keep user's description
-          memoryNote: userNote, // Keep user's note
+          content: userDescription, // Keep user's original description
+          memoryNote: analysis.analysis.memoryNote || userNote, // Use AI enhanced memory note or fallback to user input
           tags: analysis.analysis.tags || prev.tags || []
         }))
+
+        console.log('🤖 [DEBUG] AI analysis completed:', {
+          originalUserDescription: userDescription,
+          originalUserNote: userNote,
+          aiTitle: analysis.analysis.title,
+          aiMemoryNote: analysis.analysis.memoryNote,
+          aiTags: analysis.analysis.tags,
+          confidence: analysis.analysis.confidence,
+          sentiment: analysis.analysis.sentiment
+        })
       } else {
         throw new Error('AI analysis failed')
       }
@@ -176,13 +188,21 @@ export const EnhancedMemoryUpload: React.FC<EnhancedMemoryUploadProps> = ({
     }
 
     setError(null)
-    
+
+    console.log('📝 [DEBUG] Description step completed:', {
+      title: memoryData.title,
+      description: memoryData.content,
+      memoryNote: memoryData.memoryNote,
+      hasFile: !!selectedFile
+    })
+
     // Start AI analysis with user-provided description and note
     if (selectedFile) {
       setCurrentStep('ai-analysis')
       await analyzeFileWithAI(selectedFile, memoryData.content, memoryData.memoryNote || '')
     } else {
-      setCurrentStep('visibility')
+      // If no file, skip AI analysis and go directly to content review
+      setCurrentStep('content')
     }
   }
 
@@ -214,12 +234,22 @@ export const EnhancedMemoryUpload: React.FC<EnhancedMemoryUploadProps> = ({
     setError(null)
 
     try {
-      const userProfile = LocalStorage.getUserProfile()
-      if (!userProfile) {
-        throw new Error('User profile not found')
+      // Get user profile from LocalStorage (primary source)
+      const localUserProfile = LocalStorage.getUserProfile()
+      if (!localUserProfile) {
+        throw new Error('User profile not found in LocalStorage')
       }
 
-      // Create the memory object
+      console.log('🚀 [DEBUG] Starting hybrid memory upload (LocalStorage + DXOS):', {
+        hasLocalProfile: !!localUserProfile,
+        hasDXOSClient: !!client,
+        hasDXOSSpace: !!currentSpace,
+        hasDXOSIdentity: !!identity,
+        visibility,
+        hasFile: !!selectedFile
+      })
+
+      // Create the memory object using LocalStorage as primary source
       const memoryId = LocalStorage.generateId()
       const timestamp = Date.now()
 
@@ -234,10 +264,10 @@ export const EnhancedMemoryUpload: React.FC<EnhancedMemoryUploadProps> = ({
         fileSize: selectedFile?.size,
         mimeType: selectedFile?.type,
         timestamp,
-        authorId: userProfile.id,
-        authorName: userProfile.displayName,
-        authorAvatar: userProfile.avatar,
-        authorContact: userProfile.contactLink,
+        authorId: localUserProfile.id,
+        authorName: localUserProfile.displayName,
+        authorAvatar: localUserProfile.avatar,
+        authorContact: localUserProfile.contactLink,
         tags: memoryData.tags
       }
 
@@ -254,10 +284,17 @@ export const EnhancedMemoryUpload: React.FC<EnhancedMemoryUploadProps> = ({
 
       // Upload to IPFS if public
       if (visibility === 'public') {
+        console.log('🌐 [DEBUG] Uploading public memory to IPFS:', {
+          memoryId: memory.id,
+          hasFile: !!selectedFile,
+          fileType: memory.fileType
+        })
+
         try {
           let ipfsResult
 
           if (selectedFile) {
+            console.log('📁 [DEBUG] Uploading file to IPFS:', selectedFile.name)
             ipfsResult = await IPFSService.uploadFileToIPFS(selectedFile, {
               title: memory.title,
               memoryNote: memory.memoryNote,
@@ -266,13 +303,15 @@ export const EnhancedMemoryUpload: React.FC<EnhancedMemoryUploadProps> = ({
               tags: memory.tags
             })
           } else {
+            console.log('📝 [DEBUG] Uploading text content to IPFS')
             ipfsResult = await IPFSService.uploadToIPFS(
               JSON.stringify({
                 title: memory.title,
                 content: memory.content,
                 memoryNote: memory.memoryNote,
                 timestamp: memory.timestamp,
-                fileType: memory.fileType
+                fileType: memory.fileType,
+                tags: memory.tags
               }, null, 2),
               {
                 title: memory.title,
@@ -288,18 +327,42 @@ export const EnhancedMemoryUpload: React.FC<EnhancedMemoryUploadProps> = ({
           memory.ipfsUrl = IPFSService.getIPFSUrl(ipfsResult.cid)
           memory.ipfsGatewayUrl = IPFSService.getIPFSGatewayUrl(ipfsResult.cid)
 
+          console.log('✅ [DEBUG] IPFS upload successful:', {
+            cid: ipfsResult.cid,
+            ipfsUrl: memory.ipfsUrl,
+            gatewayUrl: memory.ipfsGatewayUrl
+          })
+
           setUploadProgress(75)
         } catch (ipfsError) {
-          console.warn('IPFS upload failed, saving locally:', ipfsError)
+          console.warn('❌ [DEBUG] IPFS upload failed, continuing with local save:', ipfsError)
           // Continue with local save even if IPFS fails
         }
+      } else {
+        console.log('🔒 [DEBUG] Private memory - skipping IPFS upload')
       }
 
-      // Save locally
+      // Save to LocalStorage (primary storage)
       LocalStorage.saveMemory(memory)
+      console.log('💾 [DEBUG] Memory saved to LocalStorage (primary)')
+
+      // Try to sync to DXOS if available (secondary/sync storage)
+      if (client && currentSpace && identity) {
+        try {
+          console.log('🔄 [DEBUG] Syncing memory to DXOS space:', memory.id)
+          await client.addObject(currentSpace, memory)
+          console.log('✅ [DEBUG] Memory synced to DXOS space successfully')
+        } catch (dxosError) {
+          console.warn('⚠️ [DEBUG] Failed to sync to DXOS, but saved locally:', dxosError)
+          // Don't fail the upload if DXOS sync fails
+        }
+      } else {
+        console.log('ℹ️ [DEBUG] DXOS not available, saved to LocalStorage only')
+      }
 
       // Share with network if public
       if (visibility === 'public') {
+        console.log('📡 [DEBUG] Sharing public memory with network discovery')
         try {
           const networkDiscovery = getNetworkDiscovery()
           await networkDiscovery.sharePublicMemory(memoryId, {
@@ -307,20 +370,50 @@ export const EnhancedMemoryUpload: React.FC<EnhancedMemoryUploadProps> = ({
             content: memory.content,
             timestamp: memory.timestamp,
             fileType: memory.fileType,
-            tags: memory.tags
+            tags: memory.tags,
+            ipfsCid: memory.ipfsCid
           })
+          console.log('✅ [DEBUG] Memory shared with network discovery successfully')
         } catch (networkError) {
-          console.warn('Failed to share with network:', networkError)
+          console.warn('⚠️ [DEBUG] Failed to share with network discovery:', networkError)
           // Continue even if network sharing fails
         }
+      } else {
+        console.log('🔒 [DEBUG] Private memory - skipping network sharing')
       }
 
       setUploadProgress(100)
       setCompletedMemory(memory)
       setCurrentStep('complete')
 
-      // Update user profile memory count
-      LocalStorage.updateUserProfile({ memoriesCount: (userProfile.memoriesCount || 0) + 1 })
+      // Update user profile memory count in LocalStorage (primary)
+      LocalStorage.updateUserProfile({ memoriesCount: (localUserProfile.memoriesCount || 0) + 1 })
+      console.log('📊 [DEBUG] Updated user profile memory count in LocalStorage')
+
+      // Try to sync updated profile to DXOS if available
+      if (client && currentSpace && identity && userProfile) {
+        try {
+          // Create updated profile for DXOS (which may not have memoriesCount)
+          const updatedProfile = {
+            ...userProfile,
+            lastActive: Date.now() // Update last active instead of memoriesCount
+          }
+          await client.addObject(currentSpace, updatedProfile)
+          console.log('📊 [DEBUG] Synced updated user profile to DXOS')
+        } catch (profileError) {
+          console.warn('⚠️ [DEBUG] Failed to sync user profile to DXOS:', profileError)
+          // Don't fail if DXOS sync fails
+        }
+      }
+
+      console.log('🎉 [DEBUG] Hybrid memory upload completed successfully:', {
+        memoryId: memory.id,
+        visibility: memory.visibility,
+        savedToLocalStorage: true,
+        syncedToDXOS: !!(client && currentSpace && identity),
+        hasIPFS: !!memory.ipfsCid,
+        spaceId: currentSpace?.id || 'N/A'
+      })
 
       onMemoryUploaded?.(memory)
 
@@ -602,9 +695,12 @@ export const EnhancedMemoryUpload: React.FC<EnhancedMemoryUploadProps> = ({
   const renderContentStep = () => (
     <div className="step-content">
       <div className="step-header">
-        <h2>Review AI Suggestions</h2>
+        <h2>Review {aiAnalysis ? 'AI Suggestions' : 'Your Content'}</h2>
         <p>
-          Our AI has analyzed your file and suggested details. You can edit these before saving.
+          {aiAnalysis
+            ? 'Our AI has analyzed your file and enhanced your description. You can edit these before saving.'
+            : 'Review and finalize your memory details before saving.'
+          }
         </p>
       </div>
 
@@ -616,8 +712,8 @@ export const EnhancedMemoryUpload: React.FC<EnhancedMemoryUploadProps> = ({
             <div className="suggestion-item">
               <label>Confidence Score</label>
               <div className="confidence-bar">
-                <div 
-                  className="confidence-fill" 
+                <div
+                  className="confidence-fill"
                   style={{ width: `${aiAnalysis.confidence || 0}%` }}
                 ></div>
                 <span>{aiAnalysis.confidence || 0}%</span>
@@ -635,6 +731,22 @@ export const EnhancedMemoryUpload: React.FC<EnhancedMemoryUploadProps> = ({
               <div className="suggestion-item">
                 <label>Category</label>
                 <span className="category-badge">{aiAnalysis.categories}</span>
+              </div>
+            )}
+            {aiAnalysis.memoryNote && (
+              <div className="suggestion-item">
+                <label>AI Enhanced Personal Note</label>
+                <div className="ai-suggestion-text">
+                  {aiAnalysis.memoryNote}
+                </div>
+              </div>
+            )}
+            {aiAnalysis.tags && aiAnalysis.tags.length > 0 && (
+              <div className="suggestion-item">
+                <label>AI Suggested Tags</label>
+                <div className="ai-suggestion-text">
+                  {aiAnalysis.tags.join(', ')}
+                </div>
               </div>
             )}
           </div>

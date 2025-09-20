@@ -8,7 +8,9 @@
       "Bash(npm run lint)",
       "WebFetch(domain:logux.org)",
       "WebFetch(domain:docs.dxos.org)",
-      "Bash(npm run build:*)"
+      "Bash(npm run build:*)",
+      "Bash(cat:*)",
+      "Bash(npm run test:unit:*)"
     ],
     "deny": [],
     "ask": []

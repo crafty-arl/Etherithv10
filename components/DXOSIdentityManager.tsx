@@ -27,29 +27,112 @@ export default function DXOSIdentityManager({
 
   // Auto-populate display name from Discord session
   useEffect(() => {
-    if (session?.user?.name && !displayName) {
-      setDisplayName(session.user.name)
+    if (session?.user && !displayName) {
+      // Prefer Discord username over display name for consistency
+      const discordName = session.user.username || session.user.name || 'Anonymous'
+      setDisplayName(discordName)
     }
   }, [session, displayName])
+
+  // Auto-create identity when Discord user is present and DXOS is ready
+  useEffect(() => {
+    console.log('🔍 [DEBUG] Identity creation check:', {
+      hasSession: !!session?.user,
+      isInitialized,
+      hasIdentity,
+      isCreatingIdentity,
+      hasDisplayName: !!displayName,
+      sessionUser: session?.user ? {
+        username: session.user.username,
+        name: session.user.name,
+        discordId: session.user.discordId
+      } : null,
+      timestamp: new Date().toISOString()
+    })
+
+    if (session?.user && isInitialized && !hasIdentity && !isCreatingIdentity && displayName) {
+      console.log('🎯 [DEBUG] All conditions met, auto-creating DXOS identity:', {
+        displayName,
+        discordUsername: session.user.username,
+        timestamp: new Date().toISOString()
+      })
+      handleCreateIdentity()
+    } else {
+      console.log('⏸️ [DEBUG] Identity creation conditions not met, waiting...')
+    }
+  }, [session, isInitialized, hasIdentity, isCreatingIdentity, displayName])
 
   /**
    * Handle identity creation
    */
   const handleCreateIdentity = async () => {
-    if (!displayName.trim()) return
+    if (!displayName.trim()) {
+      console.log('⚠️ [DEBUG] Cannot create identity - display name is empty')
+      return
+    }
+
+    console.log('🚀 [DEBUG] Starting identity creation process...')
 
     try {
       setIsCreatingIdentity(true)
       clearError()
 
-      const newIdentity = await createIdentity(displayName.trim())
-      console.log('✅ Identity created:', newIdentity)
+      // Use Discord-synced display name
+      const identityName = displayName.trim()
+      console.log('🔄 [DEBUG] Creating DXOS identity:', {
+        identityName,
+        originalDisplayName: displayName,
+        trimmed: identityName,
+        timestamp: new Date().toISOString()
+      })
 
+      // Prepare Discord data for identity creation
+      const discordData = session?.user ? {
+        discordId: session.user.discordId,
+        username: session.user.username,
+        avatar: session.user.avatar
+      } : undefined
+
+      console.log('📋 [DEBUG] Discord data prepared:', {
+        hasDiscordData: !!discordData,
+        discordData: discordData || 'None'
+      })
+
+      const createStart = Date.now()
+      const newIdentity = await createIdentity(identityName, discordData)
+      const createTime = Date.now() - createStart
+
+      console.log('✅ [DEBUG] Identity creation completed:', {
+        identityId: newIdentity.id,
+        displayName: newIdentity.displayName,
+        createTime: `${createTime}ms`,
+        hasDiscordLink: !!discordData,
+        timestamp: new Date().toISOString()
+      })
+
+      if (session?.user) {
+        console.log('🔗 [DEBUG] DXOS identity successfully linked to Discord:', {
+          dxosId: newIdentity.id,
+          dxosName: newIdentity.displayName,
+          discordId: session.user.discordId,
+          discordUsername: session.user.username
+        })
+      }
+
+      console.log('📞 [DEBUG] Calling onIdentityCreated callback...')
       onIdentityCreated?.(newIdentity)
+      console.log('✅ [DEBUG] Identity creation process completed successfully')
     } catch (err) {
-      console.error('❌ Failed to create identity:', err)
+      console.error('❌ [DEBUG] Identity creation failed:', {
+        error: err instanceof Error ? err.message : 'Unknown error',
+        stack: err instanceof Error ? err.stack : 'No stack trace',
+        displayName: displayName,
+        hasSession: !!session?.user,
+        timestamp: new Date().toISOString()
+      })
     } finally {
       setIsCreatingIdentity(false)
+      console.log('🏁 [DEBUG] Identity creation process finished (cleanup completed)')
     }
   }
 
@@ -97,6 +180,9 @@ export default function DXOSIdentityManager({
             <div className="identity-info">
               <h4>Connected as {identity.displayName}</h4>
               <p className="identity-id">ID: {identity.id?.slice(0, 12)}...</p>
+              {session?.user && (
+                <p className="discord-link">🔗 Linked to Discord: @{session.user.username}</p>
+              )}
             </div>
             <div className="connection-indicator">
               <span className="status-dot online"></span>
@@ -199,8 +285,11 @@ export default function DXOSIdentityManager({
             <div className="session-info">
               <div className="session-icon">🔗</div>
               <span>
-                Linked with Discord account: {session.user.name}
+                Synced with Discord: @{session.user.username}
               </span>
+              <div className="auto-sync-notice">
+                <small>Your DXOS identity will use your Discord username</small>
+              </div>
             </div>
           )}
 

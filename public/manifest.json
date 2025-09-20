@@ -1,18 +1,127 @@
 {
-  "name": "Etherith - Permanent Storage, Future-Proofed",
+  "name": "Etherith - Decentralized Memory Preservation",
   "short_name": "Etherith",
-  "description": "Your work, untouchable. From upload to eternity.",
+  "description": "Your memories, preserved forever through peer-to-peer technology",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#1a1a1a",
   "theme_color": "#D4AF37",
-  "orientation": "portrait-primary",
+  "orientation": "any",
+  "scope": "/",
+  "categories": ["social", "productivity", "lifestyle"],
+  "lang": "en",
+  "dir": "ltr",
+  "prefer_related_applications": false,
+  "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
+  "edge_side_panel": {
+    "preferred_width": 320
+  },
   "icons": [
     {
       "src": "/icon.svg",
       "sizes": "any",
       "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
       "purpose": "any"
+    },
+    {
+      "src": "/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-maskable-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icon-maskable-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/screenshot-wide.png",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Etherith Desktop Experience"
+    },
+    {
+      "src": "/screenshot-narrow.png",
+      "sizes": "390x844",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Etherith Mobile Experience"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Upload Memory",
+      "short_name": "Upload",
+      "description": "Quickly upload a new memory",
+      "url": "/?action=upload",
+      "icons": [
+        {
+          "src": "/icon-upload.png",
+          "sizes": "96x96"
+        }
+      ]
+    },
+    {
+      "name": "Memory Vault",
+      "short_name": "Vault",
+      "description": "View your memory collection",
+      "url": "/memory-vault",
+      "icons": [
+        {
+          "src": "/icon-vault.png",
+          "sizes": "96x96"
+        }
+      ]
+    },
+    {
+      "name": "Network",
+      "short_name": "Network",
+      "description": "Connect with other users",
+      "url": "/?tab=network",
+      "icons": [
+        {
+          "src": "/icon-network.png",
+          "sizes": "96x96"
+        }
+      ]
+    }
+  ],
+  "share_target": {
+    "action": "/share",
+    "method": "POST",
+    "enctype": "multipart/form-data",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "url": "url",
+      "files": [
+        {
+          "name": "file",
+          "accept": ["image/*", "video/*", "audio/*", "text/*", ".pdf", ".doc", ".docx"]
+        }
+      ]
+    }
+  },
+  "protocol_handlers": [
+    {
+      "protocol": "etherith",
+      "url": "/share?url=%s"
     }
   ]
 }

@@ -77,7 +77,13 @@
   font-size: 18px;
   font-weight: 600;
   cursor: pointer;
-  transition: transform 0.2s ease;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 12px rgba(212, 175, 55, 0.3);
+}
+
+.primary-action:hover {
+  box-shadow: 0 6px 16px rgba(212, 175, 55, 0.4);
+  transform: translateY(-1px);
 }
 
 .primary-action:active {
@@ -220,7 +226,11 @@
 .memory-form {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
+}
+
+.memory-form .form-group:last-child {
+  margin-bottom: 8px;
 }
 
 .form-group {
@@ -245,6 +255,8 @@
   font-size: 16px;
   line-height: 1.5;
   text-shadow: var(--text-shadow-medium);
+  resize: vertical;
+  min-height: 60px;
 }
 
 .form-input.large {
@@ -504,6 +516,33 @@
   }
 }
 
+/* Quick action animations */
+.capture-option,
+.primary-action {
+  position: relative;
+  overflow: hidden;
+}
+
+.capture-option::before,
+.primary-action::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  transition: width 0.3s ease, height 0.3s ease;
+}
+
+.capture-option:active::before,
+.primary-action:active::before {
+  width: 300px;
+  height: 300px;
+}
+
 /* Accessibility */
 @media (prefers-reduced-motion: reduce) {
   .camera-control,
@@ -511,6 +550,11 @@
   .action-button,
   .primary-action {
     transition: none;
+  }
+
+  .capture-option::before,
+  .primary-action::before {
+    display: none;
   }
 
   .upload-icon {

@@ -335,13 +335,17 @@ export const MobileFileUpload: React.FC<MobileFileUploadProps> = ({
             <button
               onClick={() => {
                 setSelectedFile(null)
+                setUploadData(prev => ({
+                  ...prev,
+                  title: `Quick Note - ${new Date().toLocaleDateString()}`
+                }))
                 setState('preview')
               }}
               className="capture-option"
-              aria-label="Create text memory"
+              aria-label="Create quick text memory"
             >
               <span className="capture-icon">✍️</span>
-              <span className="capture-label">Text Memory</span>
+              <span className="capture-label">Quick Note</span>
             </button>
           </div>
 
@@ -392,10 +396,11 @@ export const MobileFileUpload: React.FC<MobileFileUploadProps> = ({
             id="memory-content"
             value={uploadData.content || ''}
             onChange={(e) => setUploadData(prev => ({ ...prev, content: e.target.value }))}
-            placeholder="Add context about this memory..."
-            rows={3}
+            placeholder="What happened? What makes this special?"
+            rows={2}
             className="form-textarea"
           />
+          <small style={{ color: '#8a8a8a', fontSize: '12px' }}>Tip: Keep it short and personal</small>
         </div>
 
         {/* AI Suggestions */}

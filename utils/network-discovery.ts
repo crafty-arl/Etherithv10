@@ -292,6 +292,34 @@ class NetworkDiscoveryService {
     return this.getNetworkUsers().length > 0;
   }
 
+  /**
+   * Update local user information from DXOS identity
+   */
+  public updateLocalUserFromIdentity(identity: { id: string, displayName: string }) {
+    console.log('🔗 [DEBUG] Updating network discovery with DXOS identity:', identity);
+
+    // Store the user name for future use
+    localStorage.setItem('etherith_user_name', identity.displayName);
+    localStorage.setItem('etherith_dxos_identity', JSON.stringify(identity));
+
+    // Update our local user record
+    const existingUser = this.users.get(this.localUserId);
+    const updatedUser: NetworkUser = {
+      id: this.localUserId,
+      name: identity.displayName,
+      ip: this.localUserIP,
+      lastSeen: Date.now(),
+      publicMemories: existingUser?.publicMemories || []
+    };
+
+    this.users.set(this.localUserId, updatedUser);
+
+    // Immediately broadcast the updated presence
+    this.broadcastPresence();
+
+    console.log('✅ [DEBUG] Network discovery updated with identity:', updatedUser);
+  }
+
   public async sharePublicMemory(memoryId: string, memoryData: any) {
     try {
       // Add to our public memories

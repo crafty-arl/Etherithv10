@@ -19,6 +19,7 @@ export class MockClient {
   private initialized = false
   private mockSpaces: any[] = []
   private mockIdentity: any = null
+  private mockObjects = new Map<string, any[]>() // Track objects per space
 
   constructor(config: any) {
     console.log('🔧 Using Mock DXOS Client for demo purposes')
@@ -44,6 +45,21 @@ export class MockClient {
           id: `mock-identity-${Date.now()}`,
           displayName: options?.displayName || 'Mock User'
         }
+
+        // Add this user to all existing spaces as a member
+        this.mockSpaces.forEach(space => {
+          const existingMember = space.members.find((m: any) => m.id === this.mockIdentity.id)
+          if (!existingMember) {
+            space.members.push({
+              id: this.mockIdentity.id,
+              profile: {
+                displayName: this.mockIdentity.displayName
+              },
+              lastSeen: Date.now()
+            })
+          }
+        })
+
         return this.mockIdentity
       }
     }
@@ -53,24 +69,51 @@ export class MockClient {
     return {
       get: () => this.mockSpaces,
       create: async () => {
+        const spaceId = `mock-space-${Date.now()}`
         const newSpace = {
-          id: `mock-space-${Date.now()}`,
+          id: spaceId,
+          key: `space-key-${Date.now()}`,
+          properties: { name: 'Mock Space' },
+          isOpen: true,
+          members: this.mockIdentity ? [
+            {
+              id: this.mockIdentity.id,
+              profile: {
+                displayName: this.mockIdentity.displayName
+              },
+              lastSeen: Date.now()
+            }
+          ] : [],
           db: {
             add: (object: any) => {
               console.log('📝 Added object to mock space:', object.id)
+              if (!this.mockObjects.has(spaceId)) {
+                this.mockObjects.set(spaceId, [])
+              }
+              this.mockObjects.get(spaceId)!.push(object)
             },
             remove: (object: any) => {
               console.log('🗑️ Removed object from mock space:', object.id)
+              const objects = this.mockObjects.get(spaceId) || []
+              const index = objects.findIndex(obj => obj.id === object.id)
+              if (index > -1) {
+                objects.splice(index, 1)
+              }
             },
             query: (filter?: any) => ({
               run: async () => {
                 // Return mock data based on filter
-                return []
+                const objects = this.mockObjects.get(spaceId) || []
+                if (typeof filter === 'function') {
+                  return objects.filter(filter)
+                }
+                return objects
               },
               subscribe: (callback: (result: { objects: any[] }) => void) => {
                 // Simulate real-time updates
                 setTimeout(() => {
-                  callback({ objects: [] })
+                  const objects = this.mockObjects.get(spaceId) || []
+                  callback({ objects })
                 }, 1000)
 
                 return () => console.log('🔌 Unsubscribed from mock space')
@@ -80,6 +123,7 @@ export class MockClient {
         }
 
         this.mockSpaces.push(newSpace)
+        this.mockObjects.set(spaceId, [])
         return newSpace
       },
       join: (invitationCode: string) => ({

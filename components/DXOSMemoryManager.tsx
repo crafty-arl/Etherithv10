@@ -7,6 +7,7 @@ import React, { useState, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useDXOS, useQuery, useMutation, useIdentity } from '../lib/dxos/context'
 import { Memory, createMemory } from '../lib/dxos/client'
+import SafeTimestamp from './SafeTimestamp'
 
 interface DXOSMemoryManagerProps {
   className?: string
@@ -31,17 +32,20 @@ export default function DXOSMemoryManager({
     tags: ''
   })
 
+  // Create stable filter function
+  const memoryFilter = useCallback((memory: Memory) => {
+    // Filter by visibility and optionally by current user
+    return memory.visibility === visibility &&
+           (visibility === 'public' || memory.authorId === identity?.id)
+  }, [visibility, identity?.id])
+
   // Query memories with real-time updates
   const {
     data: memories,
     loading: memoriesLoading,
     error: memoriesError,
     refetch
-  } = useQuery<Memory>((memory: Memory) => {
-    // Filter by visibility and optionally by current user
-    return memory.visibility === visibility &&
-           (visibility === 'public' || memory.authorId === identity?.id)
-  })
+  } = useQuery<Memory>(memoryFilter)
 
   /**
    * Create a new memory
@@ -91,22 +95,7 @@ export default function DXOSMemoryManager({
     }
   }, [canMutate, removeObject])
 
-  /**
-   * Format timestamp for display
-   */
-  const formatTimestamp = useCallback((timestamp: number): string => {
-    const date = new Date(timestamp)
-    const now = new Date()
-    const diffInHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60)
-
-    if (diffInHours < 1) {
-      return 'Just now'
-    } else if (diffInHours < 24) {
-      return `${Math.floor(diffInHours)}h ago`
-    } else {
-      return date.toLocaleDateString()
-    }
-  }, [])
+  // Remove formatTimestamp function - now using SafeTimestamp component
 
   // Show loading state while DXOS initializes
   if (!isInitialized) {
@@ -271,7 +260,7 @@ export default function DXOSMemoryManager({
                   <div className="memory-author">
                     <span className="author-name">{memory.author}</span>
                     <span className="memory-timestamp">
-                      {formatTimestamp(memory.timestamp)}
+                      <SafeTimestamp timestamp={memory.timestamp} format="relative" />
                     </span>
                   </div>
 

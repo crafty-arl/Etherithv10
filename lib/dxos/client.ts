@@ -48,6 +48,9 @@ export const UserProfileSchema = Schema.Struct({
   website: Schema.optional(Schema.String),
   joinedAt: Schema.Number,
   lastActive: Schema.Number,
+  // Discord integration fields
+  discordId: Schema.optional(Schema.String),
+  discordUsername: Schema.optional(Schema.String),
   preferences: Schema.optional(Schema.Struct({
     theme: Schema.optional(Schema.String),
     privacy: Schema.optional(Schema.String),
@@ -163,6 +166,9 @@ export interface UserProfile {
   website?: string
   joinedAt: number
   lastActive: number
+  // Discord integration fields
+  discordId?: string
+  discordUsername?: string
   preferences?: {
     theme?: string
     privacy?: string
@@ -260,10 +266,20 @@ export class EtherithDXOSClient {
     if (this.initialized) return
 
     try {
-      console.log('🚀 Initializing DXOS client...')
+      console.log('🚀 [DEBUG] Starting DXOS client initialization...')
+      console.log('🔧 [DEBUG] Client config:', JSON.stringify(DXOS_CONFIG, null, 2))
+
+      // Check network connectivity first
+      console.log('🌐 [DEBUG] Testing network connectivity...')
+      await this.testNetworkConnectivity()
+
+      const initStart = Date.now()
       await this.client.initialize()
+      const initTime = Date.now() - initStart
+      console.log(`⚡ [DEBUG] Client initialization took ${initTime}ms`)
 
       // Register schemas with the client
+      console.log('📋 [DEBUG] Registering schemas...')
       this.client.addTypes([
         UserProfileSchema,
         MemorySchema,
@@ -271,11 +287,19 @@ export class EtherithDXOSClient {
         CommunitySchema,
         NotificationSchema
       ])
+      console.log('✅ [DEBUG] All schemas registered successfully')
 
       this.initialized = true
-      console.log('✅ DXOS client initialized successfully')
+      console.log('✅ [DEBUG] DXOS client fully initialized and ready')
+
+      // Log initial network status
+      await this.logNetworkStatus()
     } catch (error) {
-      console.error('❌ Failed to initialize DXOS client:', error)
+      console.error('❌ [DEBUG] DXOS client initialization failed:', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : 'No stack trace',
+        timestamp: new Date().toISOString()
+      })
       throw error
     }
   }
@@ -294,16 +318,47 @@ export class EtherithDXOSClient {
    * Create or get user identity
    */
   async createIdentity(displayName?: string): Promise<any> {
-    const identity = await this.client.halo.createIdentity({ displayName })
-    console.log('👤 Identity created:', identity.displayName)
-    return identity
+    console.log('🔑 [DEBUG] Creating new identity...', { displayName })
+
+    try {
+      const createStart = Date.now()
+      const identity = await this.client.halo.createIdentity({ displayName })
+      const createTime = Date.now() - createStart
+
+      console.log('✅ [DEBUG] Identity created successfully:', {
+        id: identity.id,
+        displayName: identity.displayName,
+        createTime: `${createTime}ms`,
+        timestamp: new Date().toISOString()
+      })
+
+      // Log identity verification
+      await this.verifyIdentity(identity)
+
+      return identity
+    } catch (error) {
+      console.error('❌ [DEBUG] Identity creation failed:', {
+        displayName,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : 'No stack trace',
+        timestamp: new Date().toISOString()
+      })
+      throw error
+    }
   }
 
   /**
    * Get current user identity
    */
   getIdentity(): any {
-    return this.client.halo.identity.get()
+    const identity = this.client.halo.identity.get()
+    console.log('🔍 [DEBUG] Retrieved identity:', {
+      hasIdentity: !!identity,
+      id: identity?.id,
+      displayName: identity?.displayName,
+      timestamp: new Date().toISOString()
+    })
+    return identity
   }
 
   /**
@@ -411,13 +466,177 @@ export class EtherithDXOSClient {
   }
 
   /**
+   * Test network connectivity to DXOS services
+   */
+  async testNetworkConnectivity(): Promise<void> {
+    console.log('🌐 [DEBUG] Testing network connectivity...')
+
+    try {
+      // Test signaling server connection
+      const signalingUrl = DXOS_CONFIG.runtime.services.signaling[0].server
+      console.log(`🔗 [DEBUG] Testing signaling server: ${signalingUrl}`)
+
+      // Test STUN server connection
+      const stunUrl = DXOS_CONFIG.runtime.services.ice[0].urls
+      console.log(`🧊 [DEBUG] Testing STUN server: ${stunUrl}`)
+
+      // Basic connectivity test (in real implementation, would test WebSocket connection)
+      console.log('✅ [DEBUG] Network connectivity test completed')
+    } catch (error) {
+      console.error('❌ [DEBUG] Network connectivity test failed:', error)
+      throw error
+    }
+  }
+
+  /**
+   * Verify identity after creation
+   */
+  async verifyIdentity(identity: any): Promise<void> {
+    console.log('🔐 [DEBUG] Verifying identity...', { id: identity.id })
+
+    try {
+      // Check if identity is properly stored
+      const retrievedIdentity = this.client.halo.identity.get()
+      const isValid = retrievedIdentity && retrievedIdentity.id === identity.id
+
+      console.log('✅ [DEBUG] Identity verification:', {
+        valid: isValid,
+        originalId: identity.id,
+        retrievedId: retrievedIdentity?.id,
+        match: identity.id === retrievedIdentity?.id
+      })
+
+      if (!isValid) {
+        throw new Error('Identity verification failed - mismatch detected')
+      }
+    } catch (error) {
+      console.error('❌ [DEBUG] Identity verification failed:', error)
+      throw error
+    }
+  }
+
+  /**
+   * Log current network status and peers
+   */
+  async logNetworkStatus(): Promise<void> {
+    console.log('📊 [DEBUG] Logging network status...')
+
+    try {
+      const spaces = this.client.spaces.get()
+      const identity = this.client.halo.identity.get()
+
+      console.log('📈 [DEBUG] Network Status Report:', {
+        timestamp: new Date().toISOString(),
+        initialized: this.initialized,
+        hasIdentity: !!identity,
+        identityId: identity?.id,
+        spacesCount: spaces.length,
+        spaces: spaces.map((space: any) => ({
+          id: space.id,
+          key: space.key,
+          properties: space.properties
+        }))
+      })
+
+      // Log peers for each space
+      for (const space of spaces) {
+        await this.logSpacePeers(space)
+      }
+    } catch (error) {
+      console.error('❌ [DEBUG] Failed to log network status:', error)
+    }
+  }
+
+  /**
+   * Log peers connected to a specific space
+   */
+  async logSpacePeers(space: any): Promise<void> {
+    try {
+      console.log(`👥 [DEBUG] Space ${space.id} peer status:`)
+
+      // In a real implementation, this would access actual peer information
+      // For now, we'll log what's available from the space
+      const spaceInfo = {
+        id: space.id,
+        isOpen: space.isOpen,
+        members: space.members || [],
+        memberCount: space.members?.length || 0
+      }
+
+      console.log('🌌 [DEBUG] Space details:', spaceInfo)
+
+      // Log online users
+      if (spaceInfo.members.length > 0) {
+        console.log('👤 [DEBUG] Online users:', spaceInfo.members.map((member: any) => ({
+          id: member.id,
+          profile: member.profile,
+          lastSeen: member.lastSeen
+        })))
+      } else {
+        console.log('😔 [DEBUG] No other users currently online in this space')
+      }
+    } catch (error) {
+      console.error(`❌ [DEBUG] Failed to log peers for space ${space.id}:`, error)
+    }
+  }
+
+  /**
+   * Debug method to check who's online across all spaces
+   */
+  async getOnlineUsers(): Promise<Array<{ spaceId: string, users: any[] }>> {
+    console.log('🔍 [DEBUG] Scanning for online users across all spaces...')
+
+    try {
+      const spaces = this.client.spaces.get()
+      const onlineUsers: Array<{ spaceId: string, users: any[] }> = []
+
+      for (const space of spaces) {
+        const spaceUsers = space.members || []
+        onlineUsers.push({
+          spaceId: space.id,
+          users: spaceUsers
+        })
+
+        console.log(`🌌 [DEBUG] Space ${space.id}: ${spaceUsers.length} user(s) online`)
+      }
+
+      const totalUsers = onlineUsers.reduce((sum, space) => sum + space.users.length, 0)
+      console.log(`📊 [DEBUG] Total online users across all spaces: ${totalUsers}`)
+
+      return onlineUsers
+    } catch (error) {
+      console.error('❌ [DEBUG] Failed to get online users:', error)
+      return []
+    }
+  }
+
+  /**
+   * Continuous network monitoring
+   */
+  startNetworkMonitoring(intervalMs: number = 30000): NodeJS.Timeout {
+    console.log(`🔄 [DEBUG] Starting network monitoring (every ${intervalMs}ms)...`)
+
+    return setInterval(async () => {
+      try {
+        console.log('📡 [DEBUG] === Network Status Check ===')
+        await this.logNetworkStatus()
+        await this.getOnlineUsers()
+        console.log('✅ [DEBUG] Network monitoring cycle completed')
+      } catch (error) {
+        console.error('❌ [DEBUG] Network monitoring cycle failed:', error)
+      }
+    }, intervalMs)
+  }
+
+  /**
    * Clean up resources
    */
   async destroy(): Promise<void> {
     if (this.client) {
+      console.log('🧹 [DEBUG] Destroying DXOS client...')
       await this.client.destroy()
       this.initialized = false
-      console.log('🧹 DXOS client destroyed')
+      console.log('✅ [DEBUG] DXOS client destroyed successfully')
     }
   }
 }

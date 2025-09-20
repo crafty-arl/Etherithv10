@@ -1,7 +1,7 @@
 import NextAuth from 'next-auth'
 import DiscordProvider from 'next-auth/providers/discord'
 
-export default NextAuth({
+export const authOptions = {
   providers: [
     DiscordProvider({
       clientId: process.env.DISCORD_CLIENT_ID!,
@@ -14,9 +14,10 @@ export default NextAuth({
     })
   ],
   callbacks: {
-    async jwt({ token, account, profile }) {
+    async jwt({ token, account, profile }: any) {
       if (account && profile) {
         token.accessToken = account.access_token
+        token.refreshToken = account.refresh_token
         token.discordId = (profile as any).id
         token.username = (profile as any).username
         token.discriminator = (profile as any).discriminator
@@ -24,9 +25,10 @@ export default NextAuth({
       }
       return token
     },
-    async session({ session, token }) {
+    async session({ session, token }: any) {
       if (token) {
         session.accessToken = token.accessToken as string
+        session.refreshToken = token.refreshToken as string
         session.user.discordId = token.discordId as string
         session.user.username = token.username as string
         session.user.discriminator = token.discriminator as string
@@ -39,4 +41,6 @@ export default NextAuth({
     signIn: '/auth/signin',
     error: '/auth/error'
   }
-})
+}
+
+export default NextAuth(authOptions)

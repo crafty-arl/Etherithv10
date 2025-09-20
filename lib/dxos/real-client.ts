@@ -7,23 +7,74 @@
 let Client: any;
 let Config: any;
 
+// Import public memory sync service
+import { publicMemorySync } from './utils/public-memory-sync';
+
 // Dynamic import to handle WASM loading issues
 async function loadDXOS() {
   try {
+    console.log('🔄 [REAL DXOS] Starting DXOS initialization sequence...');
+    
+    // Try the alternative Automerge setup first
+    try {
+      const { setupAutomergeForDXOS } = await import('./automerge-setup');
+      setupAutomergeForDXOS();
+      console.log('✅ [REAL DXOS] Alternative Automerge setup successful');
+    } catch (altError) {
+      console.warn('⚠️ [REAL DXOS] Alternative Automerge setup failed, trying original method:', altError);
+      
+      // Fallback to original setup method
+      const { setupGlobalAutomerge } = await import('./automerge-global-setup');
+      
+      let automergeSetupSuccess = false;
+      let retryCount = 0;
+      const maxRetries = 3;
+      
+      while (!automergeSetupSuccess && retryCount < maxRetries) {
+        try {
+          await setupGlobalAutomerge();
+          automergeSetupSuccess = true;
+          console.log('✅ [REAL DXOS] Original Automerge setup successful');
+        } catch (automergeError) {
+          retryCount++;
+          console.warn(`⚠️ [REAL DXOS] Automerge setup attempt ${retryCount} failed:`, automergeError);
+          
+          if (retryCount < maxRetries) {
+            console.log(`🔄 [REAL DXOS] Retrying Automerge setup in 1 second...`);
+            await new Promise(resolve => setTimeout(resolve, 1000));
+          } else {
+            throw new Error(`Failed to setup Automerge after ${maxRetries} attempts`);
+          }
+        }
+      }
+    }
+
+    // Wait longer to ensure Automerge is fully set up and available globally
+    console.log('🔄 [REAL DXOS] Waiting for Automerge to be fully available...');
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
+    // Verify Automerge is available globally before proceeding
+    if (typeof globalThis !== 'undefined' && !(globalThis as any).Automerge) {
+      throw new Error('Automerge not available globally after setup');
+    }
+
+    // Then load DXOS client
+    console.log('🔄 [REAL DXOS] Loading DXOS client...');
     const dxosModule = await import('@dxos/client');
     Client = dxosModule.Client;
     Config = dxosModule.Config;
+    
+    console.log('✅ [REAL DXOS] DXOS modules loaded successfully');
     return true;
   } catch (error) {
-    console.warn('⚠️ [REAL DXOS] Failed to load DXOS client:', error);
+    console.error('❌ [REAL DXOS] Failed to load DXOS client:', error);
     return false;
   }
 }
 
 // DXOS Configuration factory
 function createDXOSConfig() {
-  if (!Config) {
-    return {
+  const baseConfig = {
       runtime: {
         client: {
           storage: {
@@ -34,41 +85,37 @@ function createDXOSConfig() {
         services: {
           signaling: [
             {
+              server: 'wss://signal.dxos.org/.well-known/dx/signal'
+            },
+            {
               server: 'wss://kras1.dxos.network/.well-known/dx/signal'
             }
           ],
           ice: [
             {
               urls: 'stun:stun.l.google.com:19302'
+            },
+            {
+              urls: 'stun:stun1.l.google.com:19302'
             }
           ]
         }
       }
-    };
+  };
+
+  if (!Config) {
+    console.log('⚠️ [REAL DXOS] Config not available, using fallback configuration');
+    return baseConfig;
   }
 
-  return new Config({
-    runtime: {
-      client: {
-        storage: {
-          persistent: true,
-          dataRoot: '.dxos'
-        }
-      },
-      services: {
-        signaling: [
-          {
-            server: 'wss://kras1.dxos.network/.well-known/dx/signal'
-          }
-        ],
-        ice: [
-          {
-            urls: 'stun:stun.l.google.com:19302'
-          }
-        ]
-      }
-    }
-  });
+  try {
+    const config = new Config(baseConfig);
+    console.log('✅ [REAL DXOS] Configuration created successfully');
+    return config;
+  } catch (error) {
+    console.warn('⚠️ [REAL DXOS] Failed to create Config object, using fallback:', error);
+    return baseConfig;
+  }
 }
 
 // User Profile interface for our application
@@ -143,16 +190,82 @@ export class EtherithDXOSClient {
       console.log('🔄 [REAL DXOS] Initializing client...')
       await this.client.initialize()
 
-      // Wait for client to be ready
-      await this.client.spaces.waitUntilReady()
+      // Set up connection monitoring
+      this.setupConnectionMonitoring()
+
+      // Wait for client to be ready with timeout
+      try {
+        await Promise.race([
+          this.client.spaces.waitUntilReady(),
+          new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Client initialization timeout')), 15000)
+          )
+        ])
+        console.log('✅ [REAL DXOS] Client spaces ready')
+      } catch (timeoutError) {
+        console.warn('⚠️ [REAL DXOS] Client initialization timeout, continuing with limited functionality')
+        console.log('💡 [REAL DXOS] This is normal if signal servers are unreachable - local functionality will still work')
+        // Continue with limited functionality - the client might still work for local operations
+      }
 
       this.initialized = true
       console.log('✅ [REAL DXOS] Client initialized successfully')
+      
+      // Initialize public memory sync service
+      publicMemorySync.initialize(this)
+      console.log('🔄 [REAL DXOS] Public memory sync service initialized')
     } catch (error) {
       console.error('❌ [REAL DXOS] Failed to initialize client:', error)
+      
+      // Check if it's an Automerge error specifically
+      if (error instanceof Error && error.message.includes('Automerge.use() not called')) {
+        console.error('❌ [REAL DXOS] Automerge initialization failed - this is a critical error')
+        console.log('💡 [REAL DXOS] This may be due to a version compatibility issue between DXOS and Automerge')
+        console.log('💡 [REAL DXOS] Try refreshing the page or clearing browser cache')
+        console.log('💡 [REAL DXOS] If the issue persists, consider updating DXOS or Automerge versions')
+      }
+      
       console.log('⚠️ [REAL DXOS] Falling back to basic functionality')
+      console.log('📝 [REAL DXOS] Local storage and basic features will still work')
       this.initialized = true
       this.dxosLoaded = false
+    }
+  }
+
+  /**
+   * Set up connection monitoring and retry logic
+   */
+  private setupConnectionMonitoring(): void {
+    if (!this.client) return
+
+    // Monitor connection status
+    this.client.status.subscribe((status: any) => {
+      console.log('📡 [REAL DXOS] Connection status:', status)
+      
+      if (status?.client === 'error') {
+        console.warn('⚠️ [REAL DXOS] Connection error detected, attempting recovery...')
+        this.handleConnectionError()
+      }
+    })
+  }
+
+  /**
+   * Handle connection errors with retry logic
+   */
+  private async handleConnectionError(): Promise<void> {
+    if (!this.client) return
+
+    console.log('🔄 [REAL DXOS] Attempting to recover connection...')
+    
+    try {
+      // Wait a bit before retrying
+      await new Promise(resolve => setTimeout(resolve, 5000))
+      
+      // Try to reinitialize
+      await this.client.initialize()
+      console.log('✅ [REAL DXOS] Connection recovered successfully')
+    } catch (error) {
+      console.error('❌ [REAL DXOS] Connection recovery failed:', error)
     }
   }
 
@@ -242,6 +355,11 @@ export class EtherithDXOSClient {
    * Get all available spaces
    */
   getSpaces(): any[] {
+    if (!this.dxosLoaded || !this.client) {
+      console.log('📋 [REAL DXOS] Client not available, returning empty spaces array')
+      return []
+    }
+
     const spaces = this.client.spaces.get()
     console.log('📋 [REAL DXOS] Retrieved spaces:', {
       count: spaces.length,
@@ -366,9 +484,51 @@ export class EtherithDXOSClient {
         spaceId: space.id,
         objectType: object.type || 'unknown'
       })
+
+      // If this is a public memory, add it to the sync queue
+      if (object.visibility === 'public' && object.type === 'memory') {
+        const identity = this.getIdentity()
+        if (identity) {
+          publicMemorySync.addToSyncQueue(object, space.id, identity.identityKey?.toHex() || 'unknown')
+          console.log('🔄 [REAL DXOS] Added public memory to sync queue:', object.id)
+        }
+      }
     } catch (error) {
       console.error('❌ [REAL DXOS] Failed to add object to space:', error)
       throw error
+    }
+  }
+
+  /**
+   * Get all cross-space public memories
+   */
+  async getCrossSpacePublicMemories(): Promise<any[]> {
+    try {
+      const memories = publicMemorySync.getAllCrossSpaceMemories()
+      console.log('🌐 [REAL DXOS] Retrieved cross-space public memories:', memories.length)
+      return memories
+    } catch (error) {
+      console.error('❌ [REAL DXOS] Failed to get cross-space public memories:', error)
+      return []
+    }
+  }
+
+  /**
+   * Get public memory sync status
+   */
+  getPublicMemorySyncStatus(): any {
+    return publicMemorySync.getSyncStatus()
+  }
+
+  /**
+   * Force resync of public memories
+   */
+  async forceResyncPublicMemories(): Promise<void> {
+    try {
+      await publicMemorySync.forceResync()
+      console.log('🔄 [REAL DXOS] Forced resync of public memories')
+    } catch (error) {
+      console.error('❌ [REAL DXOS] Failed to force resync:', error)
     }
   }
 
@@ -419,6 +579,9 @@ export class EtherithDXOSClient {
    * Check if client is connected
    */
   isConnected(): boolean {
+    if (!this.dxosLoaded || !this.client) {
+      return false
+    }
     return this.initialized && this.client.status.get()?.client === 'ready'
   }
 

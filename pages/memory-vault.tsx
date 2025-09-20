@@ -8,6 +8,7 @@ import MemoryViewer from '../components/MemoryViewer'
 import { Memory, SearchFilters, UserProfile } from '../types/memory'
 import { LocalStorage } from '../utils/storage'
 import { useDXOS } from '../lib/dxos/context'
+import DXOSMemoryManager from '../components/DXOSMemoryManager'
 import { getNetworkDiscovery, NetworkUser } from '../utils/network-discovery'
 
 export default function VaultPage() {
@@ -20,7 +21,7 @@ export default function VaultPage() {
   const [filters, setFilters] = useState<SearchFilters>({})
   const [showUpload, setShowUpload] = useState(false)
   const [selectedMemory, setSelectedMemory] = useState<Memory | null>(null)
-  const [activeTab, setActiveTab] = useState<'public' | 'my-memories'>('public')
+  const [activeTab, setActiveTab] = useState<'public' | 'my-memories' | 'cross-space'>('public')
   const [viewMode, setViewMode] = useState<'feed' | 'grid'>('feed')
   const [selectedFileType, setSelectedFileType] = useState<string>('all')
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -307,6 +308,18 @@ export default function VaultPage() {
                 <span>🔒 My Vault</span>
                 <span className="count" aria-label={`${memories.filter(m => m.authorId === session.user?.discordId).length} personal memories`}>{memories.filter(m => m.authorId === session.user?.discordId).length}</span>
               </button>
+              <button
+                className={`nav-item ${activeTab === 'cross-space' ? 'active' : ''}`}
+                onClick={() => {
+                  setActiveTab('cross-space')
+                  setSidebarOpen(false)
+                }}
+                aria-pressed={activeTab === 'cross-space'}
+                aria-label="View cross-space public memories"
+              >
+                <span>🌐 Cross-Space</span>
+                <span className="count">DXOS</span>
+              </button>
             </div>
 
             <div className="nav-section">
@@ -419,11 +432,15 @@ export default function VaultPage() {
           <header className="feed-header">
             <div className="feed-title">
               <h1>
-                {activeTab === 'public' ? '🌐 Public Memory Feed' : '🔒 My Memory Vault'}
+                {activeTab === 'public' ? '🌐 Public Memory Feed' : 
+                 activeTab === 'cross-space' ? '🌐 Cross-Space Public Memories' :
+                 '🔒 My Memory Vault'}
               </h1>
               <p>
                 {activeTab === 'public'
                   ? 'Discover memories shared by the community'
+                  : activeTab === 'cross-space'
+                  ? 'Public memories synchronized across all DXOS spaces'
                   : 'Your personal digital memory collection'
                 }
               </p>
@@ -480,7 +497,29 @@ export default function VaultPage() {
           </header>
 
           <div className={`feed-content ${viewMode}`} role="region" aria-label="Memory content">
-            {filteredMemories.length === 0 ? (
+            {activeTab === 'cross-space' ? (
+              <DXOSMemoryManager
+                className="cross-space-memory-manager"
+                visibility="public"
+                crossSpace={true}
+                onMemorySelect={(memory) => {
+                  // Convert DXOS Memory to local Memory format
+                  const localMemory: Memory = {
+                    id: memory.id,
+                    title: memory.title,
+                    content: memory.content,
+                    timestamp: memory.timestamp,
+                    visibility: memory.visibility === 'space' ? 'public' : memory.visibility as 'public' | 'private',
+                    tags: memory.tags,
+                    fileType: memory.fileType as 'text' | 'document' | 'audio' | 'image' | 'video',
+                    authorId: memory.authorId || 'unknown',
+                    memoryNote: '', // Default empty note
+                    authorName: (memory as any).authorName || 'Unknown User'
+                  }
+                  handleMemoryView(localMemory)
+                }}
+              />
+            ) : filteredMemories.length === 0 ? (
               <div className="empty-feed-state" role="status" aria-live="polite">
                 <div className="empty-illustration" role="img" aria-label="Empty state illustration">
                   {selectedFileType === 'all' ? '📚' :

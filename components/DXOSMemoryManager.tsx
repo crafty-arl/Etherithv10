@@ -5,7 +5,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { useDXOS, useQuery, useMutation, useIdentity } from '../lib/dxos/context'
+import { useDXOS, useQuery, useMutation, useIdentity, useCrossSpaceQuery } from '../lib/dxos/context'
 import { Memory, createMemory } from '../lib/dxos/client'
 import SafeTimestamp from './SafeTimestamp'
 
@@ -13,12 +13,14 @@ interface DXOSMemoryManagerProps {
   className?: string
   visibility?: 'public' | 'private' | 'friends'
   onMemorySelect?: (memory: Memory) => void
+  crossSpace?: boolean // Enable cross-space public memory viewing
 }
 
 export default function DXOSMemoryManager({
   className = '',
   visibility = 'public',
-  onMemorySelect
+  onMemorySelect,
+  crossSpace = false
 }: DXOSMemoryManagerProps) {
   const { isInitialized, isConnected, currentSpace, error } = useDXOS()
   const { identity, hasIdentity } = useIdentity()
@@ -46,6 +48,21 @@ export default function DXOSMemoryManager({
     error: memoriesError,
     refetch
   } = useQuery<Memory>(memoryFilter)
+
+  // Cross-space query for public memories
+  const {
+    data: crossSpaceMemories,
+    loading: crossSpaceLoading,
+    error: crossSpaceError,
+    refetch: refetchCrossSpace,
+    syncStatus
+  } = useCrossSpaceQuery<Memory>({ visibility: 'public' })
+
+  // Use cross-space memories if crossSpace mode is enabled and visibility is public
+  const displayMemories = crossSpace && visibility === 'public' ? crossSpaceMemories : memories
+  const displayLoading = crossSpace && visibility === 'public' ? crossSpaceLoading : memoriesLoading
+  const displayError = crossSpace && visibility === 'public' ? crossSpaceError : memoriesError
+  const displayRefetch = crossSpace && visibility === 'public' ? refetchCrossSpace : refetch
 
   /**
    * Create a new memory
@@ -141,20 +158,32 @@ export default function DXOSMemoryManager({
       <div className="memory-header">
         <div className="header-info">
           <h3>
-            {visibility === 'public' ? '🌐' : visibility === 'private' ? '🔒' : '👥'}
+            {crossSpace && visibility === 'public' ? '🌐 Cross-Space' : visibility === 'public' ? '🌐' : visibility === 'private' ? '🔒' : '👥'}
             {' '}
             {visibility.charAt(0).toUpperCase() + visibility.slice(1)} Memories
           </h3>
           <div className="connection-status">
-            <span className="status-indicator online">
-              ⚡ Connected to {currentSpace?.id?.slice(0, 8)}...
-            </span>
+            {crossSpace && visibility === 'public' && syncStatus ? (
+              <div className="sync-status">
+                <span className="memory-count">{syncStatus.totalMemories} memories</span>
+                {syncStatus.pendingSync > 0 && (
+                  <span className="pending-sync">{syncStatus.pendingSync} pending</span>
+                )}
+                <span className={`sync-indicator ${syncStatus.isRunning ? 'running' : 'idle'}`}>
+                  {syncStatus.isRunning ? '🔄 Syncing...' : '✅ Synced'}
+                </span>
+              </div>
+            ) : (
+              <span className="status-indicator online">
+                ⚡ Connected to {currentSpace?.id?.slice(0, 8)}...
+              </span>
+            )}
           </div>
         </div>
 
-        {memoriesLoading && (
+        {displayLoading && (
           <div className="loading-indicator">
-            <span className="spinner">🔄</span> Syncing...
+            <span className="spinner">🔄</span> {crossSpace ? 'Syncing across spaces...' : 'Syncing...'}
           </div>
         )}
       </div>
@@ -212,14 +241,14 @@ export default function DXOSMemoryManager({
 
       {/* Memories Grid */}
       <AnimatePresence>
-        {memories.length > 0 ? (
+        {displayMemories.length > 0 ? (
           <motion.div
             className="memories-grid"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
           >
-            {memories.map((memory, index) => (
+            {displayMemories.map((memory, index) => (
               <motion.div
                 key={memory.id}
                 className="memory-card"
@@ -311,7 +340,9 @@ export default function DXOSMemoryManager({
             <div className="empty-icon">📝</div>
             <h4>No memories yet</h4>
             <p>
-              {visibility === 'public'
+              {crossSpace && visibility === 'public'
+                ? 'No public memories found across spaces. Public memories from other users will appear here once synchronized.'
+                : visibility === 'public'
                 ? 'Share your first public memory with the network!'
                 : 'Create your first private memory.'
               }
@@ -320,10 +351,10 @@ export default function DXOSMemoryManager({
         )}
       </AnimatePresence>
 
-      {memoriesError && (
+      {displayError && (
         <div className="error-message">
           <span className="error-icon">⚠️</span>
-          Error loading memories: {memoriesError}
+          Error loading memories: {displayError}
         </div>
       )}
     </div>

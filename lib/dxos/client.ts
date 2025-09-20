@@ -208,6 +208,27 @@ export class MainDXOSClient {
       return []
     }
   }
+
+  /**
+   * Get all cross-space public memories
+   */
+  async getCrossSpacePublicMemories(): Promise<any[]> {
+    return this.realClient.getCrossSpacePublicMemories()
+  }
+
+  /**
+   * Get public memory sync status
+   */
+  getPublicMemorySyncStatus(): any {
+    return this.realClient.getPublicMemorySyncStatus()
+  }
+
+  /**
+   * Force resync of public memories
+   */
+  async forceResyncPublicMemories(): Promise<void> {
+    return this.realClient.forceResyncPublicMemories()
+  }
 }
 
 // Export singleton instance

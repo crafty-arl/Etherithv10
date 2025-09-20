@@ -80,23 +80,30 @@ export function DXOSProvider({ children, autoInitialize = true }: DXOSProviderPr
         console.log('🚫 [DEBUG] No existing identity found')
       }
 
-      // Load available spaces
+      // Load available spaces with error handling
       console.log('🌌 [DEBUG] Loading available spaces...')
-      const availableSpaces = dxosClient.getSpaces()
-      setSpaces(availableSpaces)
-      console.log(`📊 [DEBUG] Found ${availableSpaces.length} space(s)`)
+      try {
+        const availableSpaces = dxosClient.getSpaces()
+        setSpaces(availableSpaces)
+        console.log(`📊 [DEBUG] Found ${availableSpaces.length} space(s)`)
 
-      // Set current space if none exists and we have spaces
-      if (availableSpaces.length > 0) {
-        const currentCurrentSpace = currentSpace // Capture current state
-        if (!currentCurrentSpace) {
-          setCurrentSpace(availableSpaces[0])
-          console.log('🎯 [DEBUG] Set current space to:', availableSpaces[0].id)
+        // Set current space if none exists and we have spaces
+        if (availableSpaces.length > 0) {
+          const currentCurrentSpace = currentSpace // Capture current state
+          if (!currentCurrentSpace) {
+            setCurrentSpace(availableSpaces[0])
+            console.log('🎯 [DEBUG] Set current space to:', availableSpaces[0].id)
+          }
         }
+      } catch (spaceError) {
+        console.warn('⚠️ [DEBUG] Could not load spaces, continuing without them:', spaceError)
+        setSpaces([])
       }
 
-      // Network monitoring removed - method not available in current implementation
-      console.log('📡 [DEBUG] Network monitoring not implemented yet')
+      // Check connection status
+      const isConnected = dxosClient.isConnected()
+      setIsConnected(isConnected)
+      console.log('📡 [DEBUG] Connection status:', isConnected ? 'Connected' : 'Disconnected')
 
       console.log('✅ [DEBUG] DXOS context initialization completed successfully')
     } catch (err) {
@@ -107,6 +114,9 @@ export function DXOSProvider({ children, autoInitialize = true }: DXOSProviderPr
         stack: err instanceof Error ? err.stack : 'No stack trace',
         timestamp: new Date().toISOString()
       })
+      
+      // Still mark as initialized to prevent infinite retries
+      setIsInitialized(true)
     }
   }, [])
 
@@ -468,6 +478,83 @@ export function useQuery<T = any>(filter?: any): {
     loading,
     error,
     refetch: fetchData
+  }
+}
+
+/**
+ * Hook for querying cross-space public memories
+ */
+export function useCrossSpaceQuery<T = any>(filter?: any): {
+  data: T[]
+  loading: boolean
+  error: string | null
+  refetch: () => Promise<void>
+  syncStatus: any
+} {
+  const { client } = useDXOS()
+  const [data, setData] = useState<T[]>([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [syncStatus, setSyncStatus] = useState({
+    isRunning: false,
+    totalMemories: 0,
+    pendingSync: 0,
+    lastSyncAt: 0
+  })
+
+  const fetchData = useCallback(async () => {
+    if (!client) {
+      setData([])
+      return
+    }
+
+    try {
+      setLoading(true)
+      setError(null)
+      
+      // Get cross-space public memories
+      const crossSpaceMemories = await client.getCrossSpacePublicMemories()
+      setData(crossSpaceMemories || [])
+      
+      // Get sync status
+      const status = client.getPublicMemorySyncStatus()
+      setSyncStatus(status)
+      
+      console.log('🌐 [CROSS-SPACE-QUERY] Fetched memories:', {
+        count: crossSpaceMemories?.length || 0,
+        syncStatus: status
+      })
+      
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Cross-space query failed'
+      setError(errorMessage)
+      console.error('❌ [CROSS-SPACE-QUERY] Error:', err)
+    } finally {
+      setLoading(false)
+    }
+  }, [client])
+
+  useEffect(() => {
+    fetchData()
+  }, [fetchData])
+
+  // Set up periodic updates
+  useEffect(() => {
+    if (!client) return
+
+    const interval = setInterval(() => {
+      fetchData()
+    }, 30000) // Update every 30 seconds
+
+    return () => clearInterval(interval)
+  }, [client, fetchData])
+
+  return {
+    data,
+    loading,
+    error,
+    refetch: fetchData,
+    syncStatus
   }
 }
 

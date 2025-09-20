@@ -209,6 +209,27 @@ const nextConfig = {
       },
     })
 
+    // Handle Automerge WASM files from node_modules
+    config.module.rules.push({
+      test: /node_modules\/@automerge\/.*\.wasm$/,
+      type: 'asset/resource',
+      generator: {
+        filename: 'static/wasm/[name].[hash][ext]',
+      },
+    })
+
+    // Better handling for automerge API requirements
+    // Define api globally for automerge
+    config.plugins.push(
+      new webpack.DefinePlugin({
+        'api': JSON.stringify({}),
+        'self.api': JSON.stringify({}),
+        'window.api': JSON.stringify({}),
+        'global.Automerge': 'globalThis.Automerge',
+        'globalThis.Automerge': 'globalThis.Automerge',
+      })
+    )
+
     // Handle automerge wasm bindings
     config.module.rules.push({
       test: /automerge_wasm\.js$/,
@@ -284,6 +305,14 @@ const nextConfig = {
         new webpack.ProvidePlugin({
           Buffer: ['buffer', 'Buffer'],
           process: 'process/browser',
+        })
+      )
+
+      // Define globals for automerge/DXOS
+      config.plugins.push(
+        new webpack.DefinePlugin({
+          'global.api': JSON.stringify({}),
+          'global': 'globalThis',
         })
       )
     }

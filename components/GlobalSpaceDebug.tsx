@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useDXOS } from '../lib/dxos/context'
 
 export const GlobalSpaceDebug: React.FC = () => {
@@ -12,6 +12,12 @@ export const GlobalSpaceDebug: React.FC = () => {
 
   const [isTestingGlobal, setIsTestingGlobal] = useState(false)
   const [globalSpaceInfo, setGlobalSpaceInfo] = useState<any>(null)
+  const [isSSR, setIsSSR] = useState(true)
+
+  // Detect when we're on the client to prevent hydration mismatch
+  useEffect(() => {
+    setIsSSR(false)
+  }, [])
 
   const testGlobalSpace = async () => {
     setIsTestingGlobal(true)
@@ -48,8 +54,8 @@ export const GlobalSpaceDebug: React.FC = () => {
   }
 
   const findGlobalSpace = () => {
-    // Check if we're on the client side before accessing localStorage
-    const globalSpaceId = typeof window !== 'undefined'
+    // Always return null during SSR to prevent hydration mismatch
+    const globalSpaceId = typeof window !== 'undefined' && !isSSR
       ? localStorage.getItem('etherith_global_discord_space')
       : null
 

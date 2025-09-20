@@ -119,6 +119,7 @@ export default function DiscordConnect() {
               width={64}
               height={64}
               className="avatar-image"
+              priority
             />
           ) : (
             <div className="avatar-placeholder">

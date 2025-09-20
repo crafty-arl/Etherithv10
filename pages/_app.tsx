@@ -18,6 +18,16 @@ export default function App({ Component, pageProps: { session, ...pageProps } }:
             <link rel="manifest" href="/manifest.json" />
             <link rel="apple-touch-icon" href="/icon.svg" />
             <title>Etherith - Social Media Ecosystem</title>
+            <script
+              dangerouslySetInnerHTML={{
+                __html: `
+                  // Preload Automerge to ensure it's available globally
+                  if (typeof window !== 'undefined') {
+                    window.__AUTOMERGE_PRELOAD__ = true;
+                  }
+                `,
+              }}
+            />
           </Head>
           <Component {...pageProps} />
         </DXOSProvider>

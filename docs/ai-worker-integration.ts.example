@@ -1,0 +1,691 @@
+/**
+ * AI Worker Integration for Etherith Social Media Platform
+ * Comprehensive AI services for content enhancement, moderation, and personalization
+ */
+
+import { OpenAI } from 'openai'
+import { generateObject, generateText } from 'ai'
+import { z } from 'zod'
+
+// AI Analysis Types
+export interface ContentAnalysisResult {
+  sentiment: {
+    score: number // -1 to 1
+    label: 'positive' | 'negative' | 'neutral'
+    confidence: number
+  }
+  topics: string[]
+  entities: EntityAnalysis[]
+  toxicity: {
+    score: number // 0 to 1
+    categories: ToxicityCategory[]
+  }
+  engagement_prediction: number // 0 to 1
+  suggested_tags: string[]
+  content_quality: number // 0 to 1
+  reading_time: number // minutes
+  accessibility_score: number // 0 to 1
+  confidence: number
+}
+
+export interface EntityAnalysis {
+  text: string
+  type: 'person' | 'organization' | 'location' | 'event' | 'product' | 'other'
+  confidence: number
+  start: number
+  end: number
+  metadata?: Record<string, any>
+}
+
+export interface ToxicityCategory {
+  name: 'harassment' | 'hate' | 'spam' | 'violence' | 'self_harm' | 'sexual'
+  score: number
+  threshold: number
+}
+
+export interface FeedRecommendation {
+  postId: string
+  score: number
+  reasons: RecommendationReason[]
+  engagement_prediction: number
+  diversity_factor: number
+}
+
+export interface RecommendationReason {
+  type: 'interest_match' | 'social_connection' | 'trending' | 'engagement_history' | 'content_similarity'
+  strength: number
+  explanation: string
+}
+
+export interface UserRecommendation {
+  userId: string
+  score: number
+  reasons: string[]
+  mutual_connections: number
+  shared_interests: string[]
+  confidence: number
+}
+
+// Zod Schemas for AI Responses
+const ContentAnalysisSchema = z.object({
+  sentiment: z.object({
+    score: z.number().min(-1).max(1),
+    label: z.enum(['positive', 'negative', 'neutral']),
+    confidence: z.number().min(0).max(1)
+  }),
+  topics: z.array(z.string()),
+  entities: z.array(z.object({
+    text: z.string(),
+    type: z.enum(['person', 'organization', 'location', 'event', 'product', 'other']),
+    confidence: z.number().min(0).max(1),
+    start: z.number(),
+    end: z.number()
+  })),
+  toxicity: z.object({
+    score: z.number().min(0).max(1),
+    categories: z.array(z.object({
+      name: z.enum(['harassment', 'hate', 'spam', 'violence', 'self_harm', 'sexual']),
+      score: z.number().min(0).max(1)
+    }))
+  }),
+  engagement_prediction: z.number().min(0).max(1),
+  suggested_tags: z.array(z.string()),
+  content_quality: z.number().min(0).max(1),
+  reading_time: z.number(),
+  accessibility_score: z.number().min(0).max(1),
+  confidence: z.number().min(0).max(1)
+})
+
+const FeedRankingSchema = z.object({
+  rankings: z.array(z.object({
+    postId: z.string(),
+    score: z.number().min(0).max(1),
+    reasons: z.array(z.object({
+      type: z.enum(['interest_match', 'social_connection', 'trending', 'engagement_history', 'content_similarity']),
+      strength: z.number().min(0).max(1),
+      explanation: z.string()
+    })),
+    engagement_prediction: z.number().min(0).max(1)
+  }))
+})
+
+// Core AI Worker Services
+export class ContentAnalysisWorker {
+  private openai: OpenAI
+  private modelName: string
+
+  constructor(apiKey: string, modelName: string = 'gpt-4o-mini') {
+    this.openai = new OpenAI({ apiKey })
+    this.modelName = modelName
+  }
+
+  async analyzePost(content: string, metadata?: {
+    author?: string
+    timestamp?: number
+    attachments?: any[]
+  }): Promise<ContentAnalysisResult> {
+    try {
+      const result = await generateObject({
+        model: this.openai(this.modelName),
+        schema: ContentAnalysisSchema,
+        prompt: `
+Analyze this social media post for sentiment, topics, entities, toxicity, and engagement potential.
+
+Post Content: "${content}"
+
+${metadata?.author ? `Author: ${metadata.author}` : ''}
+${metadata?.timestamp ? `Posted: ${new Date(metadata.timestamp).toISOString()}` : ''}
+${metadata?.attachments?.length ? `Attachments: ${metadata.attachments.length} files` : ''}
+
+Provide a comprehensive analysis including:
+1. Sentiment analysis (-1 to 1, with confidence)
+2. Main topics/themes discussed
+3. Named entities and their types
+4. Toxicity assessment across different categories
+5. Predicted engagement potential (0-1)
+6. Suggested hashtags/tags
+7. Content quality score
+8. Estimated reading time in minutes
+9. Accessibility score (how accessible the content is)
+10. Overall confidence in the analysis
+
+Be thorough but concise. Focus on actionable insights.
+        `
+      })
+
+      return result.object
+    } catch (error) {
+      console.error('Content analysis failed:', error)
+      throw new Error('Failed to analyze content')
+    }
+  }
+
+  async detectToxicity(content: string): Promise<ToxicityCategory[]> {
+    try {
+      const result = await generateObject({
+        model: this.openai(this.modelName),
+        schema: z.object({
+          toxicity_analysis: z.array(z.object({
+            name: z.enum(['harassment', 'hate', 'spam', 'violence', 'self_harm', 'sexual']),
+            score: z.number().min(0).max(1),
+            explanation: z.string()
+          }))
+        }),
+        prompt: `
+Analyze this content for toxicity across different categories. Score each category from 0 (not toxic) to 1 (highly toxic).
+
+Content: "${content}"
+
+Categories to analyze:
+- harassment: Bullying, intimidation, personal attacks
+- hate: Hate speech, discrimination, prejudice
+- spam: Promotional content, repetitive messages
+- violence: Threats, violent imagery or language
+- self_harm: Content promoting self-harm or suicide
+- sexual: Inappropriate sexual content
+
+Provide scores and brief explanations for each category.
+        `
+      })
+
+      return result.object.toxicity_analysis.map(category => ({
+        ...category,
+        threshold: 0.7 // Default threshold
+      }))
+    } catch (error) {
+      console.error('Toxicity detection failed:', error)
+      return []
+    }
+  }
+
+  async generateTags(content: string, existingTags: string[] = []): Promise<string[]> {
+    try {
+      const result = await generateObject({
+        model: this.openai(this.modelName),
+        schema: z.object({
+          tags: z.array(z.string().min(1).max(50))
+        }),
+        prompt: `
+Generate relevant hashtags/tags for this social media content.
+Consider trending topics, content themes, and user engagement.
+
+Content: "${content}"
+Existing tags: ${existingTags.join(', ')}
+
+Generate 3-8 relevant tags. Make them:
+- Relevant to the content
+- Popular/discoverable
+- Not duplicating existing tags
+- Mix of specific and broad topics
+        `
+      })
+
+      return result.object.tags
+    } catch (error) {
+      console.error('Tag generation failed:', error)
+      return []
+    }
+  }
+}
+
+export class FeedRecommendationWorker {
+  private openai: OpenAI
+  private modelName: string
+
+  constructor(apiKey: string, modelName: string = 'gpt-4o-mini') {
+    this.openai = new OpenAI({ apiKey })
+    this.modelName = modelName
+  }
+
+  async rankPosts(
+    posts: any[],
+    userProfile: {
+      interests: string[]
+      engagementHistory: any[]
+      connections: string[]
+      preferences: any
+    }
+  ): Promise<FeedRecommendation[]> {
+    try {
+      const postsData = posts.map(post => ({
+        id: post.id,
+        content: post.content.substring(0, 200), // Truncate for efficiency
+        author: post.author,
+        timestamp: post.timestamp,
+        tags: post.hashtags || [],
+        reactions: post.reactions?.length || 0,
+        comments: post.replyCount || 0
+      }))
+
+      const result = await generateObject({
+        model: this.openai(this.modelName),
+        schema: FeedRankingSchema,
+        prompt: `
+Rank these social media posts for a user's personalized feed.
+
+User Profile:
+- Interests: ${userProfile.interests.join(', ')}
+- Connections: ${userProfile.connections.length} people
+- Engagement patterns: ${JSON.stringify(userProfile.engagementHistory.slice(0, 5))}
+
+Posts to rank:
+${postsData.map((post, i) => `
+${i + 1}. ID: ${post.id}
+   Content: "${post.content}"
+   Author: ${post.author}
+   Tags: ${post.tags.join(', ')}
+   Engagement: ${post.reactions} reactions, ${post.comments} comments
+`).join('')}
+
+Rank from most to least relevant (0-1 score). Consider:
+- Interest alignment
+- Social connections
+- Content quality
+- Engagement potential
+- Diversity (don't over-emphasize one topic)
+
+Provide specific reasons for each ranking.
+        `
+      })
+
+      return result.object.rankings
+    } catch (error) {
+      console.error('Feed ranking failed:', error)
+      return posts.map(post => ({
+        postId: post.id,
+        score: 0.5,
+        reasons: [],
+        engagement_prediction: 0.5,
+        diversity_factor: 1
+      }))
+    }
+  }
+
+  async findSimilarContent(
+    targetPost: any,
+    candidatePosts: any[]
+  ): Promise<{ postId: string; similarity: number; reasons: string[] }[]> {
+    try {
+      const result = await generateObject({
+        model: this.openai(this.modelName),
+        schema: z.object({
+          similarities: z.array(z.object({
+            postId: z.string(),
+            similarity: z.number().min(0).max(1),
+            reasons: z.array(z.string())
+          }))
+        }),
+        prompt: `
+Find posts similar to the target post. Score similarity from 0-1.
+
+Target Post:
+Content: "${targetPost.content}"
+Tags: ${targetPost.hashtags?.join(', ') || 'none'}
+Type: ${targetPost.contentType || 'text'}
+
+Candidate Posts:
+${candidatePosts.map((post, i) => `
+${i + 1}. ID: ${post.id}
+   Content: "${post.content.substring(0, 100)}"
+   Tags: ${post.hashtags?.join(', ') || 'none'}
+`).join('')}
+
+Consider similarity in:
+- Topic/theme
+- Content type
+- Hashtags/tags
+- Writing style
+- User interests
+        `
+      })
+
+      return result.object.similarities
+    } catch (error) {
+      console.error('Similar content search failed:', error)
+      return []
+    }
+  }
+}
+
+export class UserDiscoveryWorker {
+  private openai: OpenAI
+  private modelName: string
+
+  constructor(apiKey: string, modelName: string = 'gpt-4o-mini') {
+    this.openai = new OpenAI({ apiKey })
+    this.modelName = modelName
+  }
+
+  async recommendUsers(
+    targetUser: {
+      interests: string[]
+      connections: string[]
+      activityHistory: any[]
+      location?: string
+    },
+    candidateUsers: any[]
+  ): Promise<UserRecommendation[]> {
+    try {
+      const result = await generateObject({
+        model: this.openai(this.modelName),
+        schema: z.object({
+          recommendations: z.array(z.object({
+            userId: z.string(),
+            score: z.number().min(0).max(1),
+            reasons: z.array(z.string()),
+            confidence: z.number().min(0).max(1)
+          }))
+        }),
+        prompt: `
+Recommend users for someone to follow/connect with.
+
+Target User:
+- Interests: ${targetUser.interests.join(', ')}
+- Current connections: ${targetUser.connections.length}
+- Location: ${targetUser.location || 'not specified'}
+
+Candidate Users:
+${candidateUsers.map((user, i) => `
+${i + 1}. ID: ${user.id}
+   Interests: ${user.interests?.join(', ') || 'none listed'}
+   Followers: ${user.stats?.followerCount || 0}
+   Location: ${user.location || 'not specified'}
+   Recent posts: ${user.recentPostsCount || 0}
+`).join('')}
+
+Score each user (0-1) based on:
+- Shared interests
+- Activity level
+- Profile completeness
+- Potential for meaningful connection
+- Geographic proximity (if relevant)
+
+Provide specific reasons for each recommendation.
+        `
+      })
+
+      return result.object.recommendations.map(rec => ({
+        ...rec,
+        mutual_connections: 0, // Would be calculated separately
+        shared_interests: [] // Would be calculated separately
+      }))
+    } catch (error) {
+      console.error('User recommendation failed:', error)
+      return []
+    }
+  }
+
+  async analyzeTrends(
+    posts: any[],
+    timeframe: '1h' | '6h' | '24h' | '7d'
+  ): Promise<{
+    hashtags: { tag: string; count: number; growth: number }[]
+    topics: { topic: string; strength: number; posts: string[] }[]
+    emergingTopics: { topic: string; confidence: number }[]
+  }> {
+    try {
+      const recentPosts = posts.filter(post => {
+        const age = Date.now() - post.timestamp
+        const maxAge = {
+          '1h': 3600000,
+          '6h': 21600000,
+          '24h': 86400000,
+          '7d': 604800000
+        }[timeframe]
+        return age <= maxAge
+      })
+
+      const result = await generateObject({
+        model: this.openai(this.modelName),
+        schema: z.object({
+          trending_hashtags: z.array(z.object({
+            tag: z.string(),
+            count: z.number(),
+            growth_rate: z.number()
+          })),
+          trending_topics: z.array(z.object({
+            topic: z.string(),
+            strength: z.number().min(0).max(1),
+            post_count: z.number()
+          })),
+          emerging_topics: z.array(z.object({
+            topic: z.string(),
+            confidence: z.number().min(0).max(1),
+            description: z.string()
+          }))
+        }),
+        prompt: `
+Analyze trending topics and hashtags from recent social media posts.
+
+Timeframe: ${timeframe}
+Total posts analyzed: ${recentPosts.length}
+
+Post data:
+${recentPosts.slice(0, 50).map(post => `
+- "${post.content.substring(0, 100)}"
+  Tags: ${post.hashtags?.join(', ') || 'none'}
+  Engagement: ${post.reactions?.length || 0} reactions
+`).join('')}
+
+Identify:
+1. Trending hashtags (with usage count and growth)
+2. Popular topics/themes (with strength score)
+3. Emerging topics (new or rapidly growing themes)
+
+Focus on genuine trends, not spam or promotional content.
+        `
+      })
+
+      return {
+        hashtags: result.object.trending_hashtags.map(h => ({
+          tag: h.tag,
+          count: h.count,
+          growth: h.growth_rate
+        })),
+        topics: result.object.trending_topics.map(t => ({
+          topic: t.topic,
+          strength: t.strength,
+          posts: [] // Would be populated separately
+        })),
+        emergingTopics: result.object.emerging_topics.map(t => ({
+          topic: t.topic,
+          confidence: t.confidence
+        }))
+      }
+    } catch (error) {
+      console.error('Trend analysis failed:', error)
+      return { hashtags: [], topics: [], emergingTopics: [] }
+    }
+  }
+}
+
+export class ModerationWorker {
+  private openai: OpenAI
+  private modelName: string
+
+  constructor(apiKey: string, modelName: string = 'gpt-4o-mini') {
+    this.openai = new OpenAI({ apiKey })
+    this.modelName = modelName
+  }
+
+  async moderateContent(
+    content: string,
+    communityRules: string[],
+    context?: {
+      author?: string
+      previousViolations?: number
+      communityType?: string
+    }
+  ): Promise<{
+    approved: boolean
+    confidence: number
+    violations: {
+      rule: string
+      severity: 'low' | 'medium' | 'high'
+      explanation: string
+    }[]
+    suggestedAction: 'approve' | 'warn' | 'remove' | 'ban'
+    moderatorNote: string
+  }> {
+    try {
+      const result = await generateObject({
+        model: this.openai(this.modelName),
+        schema: z.object({
+          approved: z.boolean(),
+          confidence: z.number().min(0).max(1),
+          violations: z.array(z.object({
+            rule: z.string(),
+            severity: z.enum(['low', 'medium', 'high']),
+            explanation: z.string()
+          })),
+          suggested_action: z.enum(['approve', 'warn', 'remove', 'ban']),
+          moderator_note: z.string()
+        }),
+        prompt: `
+Moderate this social media content against community rules.
+
+Content: "${content}"
+
+Community Rules:
+${communityRules.map((rule, i) => `${i + 1}. ${rule}`).join('\n')}
+
+Context:
+- Author: ${context?.author || 'unknown'}
+- Previous violations: ${context?.previousViolations || 0}
+- Community type: ${context?.communityType || 'general'}
+
+Determine if the content should be approved, and if not, what violations occurred.
+Suggest appropriate moderation action based on severity and context.
+        `
+      })
+
+      return {
+        approved: result.object.approved,
+        confidence: result.object.confidence,
+        violations: result.object.violations,
+        suggestedAction: result.object.suggested_action,
+        moderatorNote: result.object.moderator_note
+      }
+    } catch (error) {
+      console.error('Content moderation failed:', error)
+      return {
+        approved: true,
+        confidence: 0.5,
+        violations: [],
+        suggestedAction: 'approve',
+        moderatorNote: 'Moderation service unavailable'
+      }
+    }
+  }
+}
+
+// AI Worker Service Orchestrator
+export class AIWorkerService {
+  private contentAnalysis: ContentAnalysisWorker
+  private feedRecommendation: FeedRecommendationWorker
+  private userDiscovery: UserDiscoveryWorker
+  private moderation: ModerationWorker
+
+  constructor(apiKey: string) {
+    this.contentAnalysis = new ContentAnalysisWorker(apiKey)
+    this.feedRecommendation = new FeedRecommendationWorker(apiKey)
+    this.userDiscovery = new UserDiscoveryWorker(apiKey)
+    this.moderation = new ModerationWorker(apiKey)
+  }
+
+  // Content Analysis
+  async analyzeContent(content: string, metadata?: any): Promise<ContentAnalysisResult> {
+    return this.contentAnalysis.analyzePost(content, metadata)
+  }
+
+  async detectToxicity(content: string): Promise<ToxicityCategory[]> {
+    return this.contentAnalysis.detectToxicity(content)
+  }
+
+  async generateTags(content: string, existingTags: string[] = []): Promise<string[]> {
+    return this.contentAnalysis.generateTags(content, existingTags)
+  }
+
+  // Feed Recommendations
+  async rankFeedPosts(posts: any[], userProfile: any): Promise<FeedRecommendation[]> {
+    return this.feedRecommendation.rankPosts(posts, userProfile)
+  }
+
+  async findSimilarPosts(targetPost: any, candidatePosts: any[]): Promise<any[]> {
+    return this.feedRecommendation.findSimilarContent(targetPost, candidatePosts)
+  }
+
+  // User Discovery
+  async recommendUsers(targetUser: any, candidateUsers: any[]): Promise<UserRecommendation[]> {
+    return this.userDiscovery.recommendUsers(targetUser, candidateUsers)
+  }
+
+  async analyzeTrends(posts: any[], timeframe: '1h' | '6h' | '24h' | '7d'): Promise<any> {
+    return this.userDiscovery.analyzeTrends(posts, timeframe)
+  }
+
+  // Content Moderation
+  async moderatePost(content: string, rules: string[], context?: any): Promise<any> {
+    return this.moderation.moderateContent(content, rules, context)
+  }
+
+  // Test AI Worker functionality
+  async testWorker(): Promise<{ success: boolean; error?: string }> {
+    try {
+      const testResult = await this.contentAnalysis.analyzePost('Hello world! This is a test post.')
+      return { success: true }
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      }
+    }
+  }
+}
+
+// Usage Examples and Integration Patterns
+export const AIIntegrationExamples = {
+  // Real-time content analysis as user types
+  async analyzePostDraft(content: string, aiService: AIWorkerService) {
+    if (content.length < 10) return null
+
+    const analysis = await aiService.analyzeContent(content)
+    return {
+      sentiment: analysis.sentiment,
+      suggestedTags: analysis.suggested_tags,
+      toxicityWarning: analysis.toxicity.score > 0.7,
+      engagementPrediction: analysis.engagement_prediction
+    }
+  },
+
+  // Personalized feed generation
+  async generatePersonalizedFeed(
+    user: any,
+    availablePosts: any[],
+    aiService: AIWorkerService
+  ) {
+    const rankings = await aiService.rankFeedPosts(availablePosts, user)
+    return rankings
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 20)
+      .map(r => availablePosts.find(p => p.id === r.postId))
+  },
+
+  // Smart user recommendations
+  async suggestFollowUsers(
+    currentUser: any,
+    allUsers: any[],
+    aiService: AIWorkerService
+  ) {
+    const candidates = allUsers.filter(u =>
+      u.id !== currentUser.id &&
+      !currentUser.following.includes(u.id)
+    )
+
+    const recommendations = await aiService.recommendUsers(currentUser, candidates)
+    return recommendations
+      .filter(r => r.score > 0.6)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 10)
+  }
+}

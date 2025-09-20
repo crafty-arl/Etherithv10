@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNetworkDiscovery } from '../hooks/useNetworkDiscovery';
 import { NetworkMemory, NetworkUser } from '../utils/network-discovery';
+import MemoryViewer from './MemoryViewer';
+import { Memory } from '../types/memory';
 
 interface NetworkMemoriesProps {
   className?: string;
@@ -19,6 +21,7 @@ export default function NetworkMemories({ className = '' }: NetworkMemoriesProps
 
   const [selectedUser, setSelectedUser] = useState<string | null>(null);
   const [showAllMemories, setShowAllMemories] = useState(false);
+  const [selectedMemory, setSelectedMemory] = useState<Memory | null>(null);
 
   const filteredMemories = selectedUser 
     ? publicMemories.filter(memory => memory.owner === selectedUser)
@@ -41,7 +44,7 @@ export default function NetworkMemories({ className = '' }: NetworkMemoriesProps
     const date = new Date(timestamp);
     const now = new Date();
     const diffInHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60);
-    
+
     if (diffInHours < 1) {
       return 'Just now';
     } else if (diffInHours < 24) {
@@ -49,6 +52,21 @@ export default function NetworkMemories({ className = '' }: NetworkMemoriesProps
     } else {
       return date.toLocaleDateString();
     }
+  };
+
+  const convertNetworkMemoryToMemory = (networkMemory: NetworkMemory): Memory => {
+    return {
+      id: networkMemory.id,
+      title: networkMemory.title,
+      content: networkMemory.content,
+      memoryNote: '',
+      authorId: networkMemory.owner,
+      authorName: getUserName(networkMemory.owner),
+      timestamp: networkMemory.timestamp,
+      visibility: 'public' as const,
+      tags: [],
+      fileType: 'text' as const
+    };
   };
 
   if (!isOnNetwork && !isDiscovering) {
@@ -161,11 +179,11 @@ export default function NetworkMemories({ className = '' }: NetworkMemoriesProps
                 </div>
                 
                 <div className="memory-actions">
-                  <button 
+                  <button
                     className="view-memory-button"
                     onClick={() => {
-                      // TODO: Implement memory viewing
-                      console.log('View memory:', memory.id);
+                      const convertedMemory = convertNetworkMemoryToMemory(memory);
+                      setSelectedMemory(convertedMemory);
                     }}
                   >
                     View Memory

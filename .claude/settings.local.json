@@ -6,7 +6,9 @@
       "Bash(npm install:*)",
       "Bash(npm test)",
       "Bash(npm run lint)",
-      "WebFetch(domain:logux.org)"
+      "WebFetch(domain:logux.org)",
+      "WebFetch(domain:docs.dxos.org)",
+      "Bash(npm run build:*)"
     ],
     "deny": [],
     "ask": []

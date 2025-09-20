@@ -1,0 +1,825 @@
+/**
+ * Enhanced IPFS Content Distribution Strategy for Etherith Social Media Platform
+ * Advanced content addressing, caching, and distribution for social media scale
+ */
+
+import { create as createIPFS, IPFSHTTPClient } from 'ipfs-http-client'
+import { CID } from 'multiformats/cid'
+import { OrbitDB } from '@orbitdb/core'
+
+// Enhanced Content Types
+export interface ContentAddress {
+  cid: string
+  path: string
+  mimeType: string
+  size: number
+  encryption?: EncryptionInfo
+  replicas: IPFSNode[]
+  availability: AvailabilityMetrics
+  accessPattern: AccessPattern
+  retention: RetentionPolicy
+}
+
+export interface EncryptionInfo {
+  algorithm: 'AES-256-GCM' | 'ChaCha20-Poly1305'
+  keyId: string
+  publicKey?: string
+  access: 'private' | 'shared' | 'community'
+}
+
+export interface IPFSNode {
+  peerId: string
+  address: string
+  region: string
+  reliability: number
+  bandwidth: number
+  lastSeen: number
+}
+
+export interface AvailabilityMetrics {
+  score: number // 0-1
+  replicas: number
+  regions: string[]
+  averageLatency: number
+  uptime: number
+}
+
+export interface AccessPattern {
+  reads: number
+  lastAccess: number
+  popularity: number
+  trend: 'rising' | 'stable' | 'declining'
+  cacheHitRate: number
+}
+
+export interface RetentionPolicy {
+  type: ContentPermanence
+  expiresAt?: number
+  archiveAfter?: number
+  minimumReplicas: number
+  priorityLevel: 'low' | 'medium' | 'high' | 'critical'
+}
+
+export enum ContentPermanence {
+  EPHEMERAL = 'ephemeral', // 24-48 hours
+  TEMPORARY = 'temporary', // 30 days
+  PERSISTENT = 'persistent', // 1+ years
+  PERMANENT = 'permanent', // Indefinite
+  ARCHIVED = 'archived' // Cold storage
+}
+
+// Content Categories and Strategies
+export interface ContentCategory {
+  type: 'profile' | 'post' | 'media' | 'memory' | 'message' | 'community'
+  subtype?: string
+  strategy: ContentStrategy
+}
+
+export interface ContentStrategy {
+  storage: StorageStrategy
+  distribution: DistributionStrategy
+  caching: CachingStrategy
+  optimization: OptimizationStrategy
+}
+
+export interface StorageStrategy {
+  permanence: ContentPermanence
+  replication: ReplicationConfig
+  encryption: EncryptionConfig
+  compression: CompressionConfig
+}
+
+export interface ReplicationConfig {
+  minimumReplicas: number
+  targetReplicas: number
+  geoDistribution: boolean
+  redundancyLevel: 'basic' | 'enhanced' | 'enterprise'
+}
+
+export interface DistributionStrategy {
+  gateways: GatewayConfig[]
+  cdnIntegration: boolean
+  p2pSharing: boolean
+  priorityRouting: boolean
+}
+
+export interface CachingStrategy {
+  localCache: LocalCacheConfig
+  edgeCache: EdgeCacheConfig
+  browserCache: BrowserCacheConfig
+  preloading: PreloadingConfig
+}
+
+// Enhanced IPFS Service
+export class EnhancedIPFSService {
+  private ipfs: IPFSHTTPClient
+  private orbitDB: OrbitDB | null = null
+  private contentRegistry: Map<string, ContentAddress> = new Map()
+  private nodeRegistry: Map<string, IPFSNode> = new Map()
+  private strategies: Map<string, ContentStrategy> = new Map()
+
+  constructor(options: {
+    apiUrl?: string
+    gatewayUrl?: string
+    pinataApiKey?: string
+    pinataSecretKey?: string
+  }) {
+    this.ipfs = createIPFS({
+      url: options.apiUrl || '/api/v0'
+    })
+
+    this.initializeStrategies()
+  }
+
+  private initializeStrategies() {
+    // Profile content strategy
+    this.strategies.set('profile', {
+      storage: {
+        permanence: ContentPermanence.PERSISTENT,
+        replication: { minimumReplicas: 3, targetReplicas: 5, geoDistribution: true, redundancyLevel: 'enhanced' },
+        encryption: { enabled: false, userControlled: true },
+        compression: { enabled: true, level: 'medium', format: 'gzip' }
+      },
+      distribution: {
+        gateways: [{ url: 'https://gateway.pinata.cloud', priority: 1, region: 'global' }],
+        cdnIntegration: true,
+        p2pSharing: true,
+        priorityRouting: true
+      },
+      caching: {
+        localCache: { maxSize: '50MB', ttl: 86400000 },
+        edgeCache: { enabled: true, ttl: 3600000 },
+        browserCache: { enabled: true, ttl: 1800000 },
+        preloading: { enabled: true, aggressiveness: 'medium' }
+      },
+      optimization: {
+        thumbnails: true,
+        progressiveLoading: true,
+        adaptiveBitrate: false,
+        smartCompression: true
+      }
+    })
+
+    // Media content strategy
+    this.strategies.set('media', {
+      storage: {
+        permanence: ContentPermanence.PERSISTENT,
+        replication: { minimumReplicas: 2, targetReplicas: 4, geoDistribution: true, redundancyLevel: 'basic' },
+        encryption: { enabled: false, userControlled: true },
+        compression: { enabled: true, level: 'high', format: 'adaptive' }
+      },
+      distribution: {
+        gateways: [
+          { url: 'https://gateway.pinata.cloud', priority: 1, region: 'global' },
+          { url: 'https://ipfs.io', priority: 2, region: 'global' }
+        ],
+        cdnIntegration: true,
+        p2pSharing: true,
+        priorityRouting: false
+      },
+      caching: {
+        localCache: { maxSize: '200MB', ttl: 172800000 },
+        edgeCache: { enabled: true, ttl: 7200000 },
+        browserCache: { enabled: true, ttl: 3600000 },
+        preloading: { enabled: false, aggressiveness: 'low' }
+      },
+      optimization: {
+        thumbnails: true,
+        progressiveLoading: true,
+        adaptiveBitrate: true,
+        smartCompression: true
+      }
+    })
+
+    // Post content strategy
+    this.strategies.set('post', {
+      storage: {
+        permanence: ContentPermanence.PERSISTENT,
+        replication: { minimumReplicas: 2, targetReplicas: 3, geoDistribution: false, redundancyLevel: 'basic' },
+        encryption: { enabled: false, userControlled: true },
+        compression: { enabled: true, level: 'low', format: 'gzip' }
+      },
+      distribution: {
+        gateways: [{ url: 'https://gateway.pinata.cloud', priority: 1, region: 'global' }],
+        cdnIntegration: false,
+        p2pSharing: true,
+        priorityRouting: false
+      },
+      caching: {
+        localCache: { maxSize: '100MB', ttl: 86400000 },
+        edgeCache: { enabled: false, ttl: 0 },
+        browserCache: { enabled: true, ttl: 1800000 },
+        preloading: { enabled: true, aggressiveness: 'high' }
+      },
+      optimization: {
+        thumbnails: false,
+        progressiveLoading: false,
+        adaptiveBitrate: false,
+        smartCompression: false
+      }
+    })
+
+    // Ephemeral content strategy (stories, live content)
+    this.strategies.set('ephemeral', {
+      storage: {
+        permanence: ContentPermanence.EPHEMERAL,
+        replication: { minimumReplicas: 1, targetReplicas: 2, geoDistribution: false, redundancyLevel: 'basic' },
+        encryption: { enabled: false, userControlled: false },
+        compression: { enabled: true, level: 'high', format: 'adaptive' }
+      },
+      distribution: {
+        gateways: [{ url: 'https://gateway.pinata.cloud', priority: 1, region: 'global' }],
+        cdnIntegration: false,
+        p2pSharing: true,
+        priorityRouting: true
+      },
+      caching: {
+        localCache: { maxSize: '50MB', ttl: 86400000 },
+        edgeCache: { enabled: false, ttl: 0 },
+        browserCache: { enabled: true, ttl: 3600000 },
+        preloading: { enabled: false, aggressiveness: 'low' }
+      },
+      optimization: {
+        thumbnails: true,
+        progressiveLoading: true,
+        adaptiveBitrate: true,
+        smartCompression: true
+      }
+    })
+  }
+
+  // Enhanced Upload Methods
+  async uploadContent(
+    data: Uint8Array | string,
+    metadata: {
+      category: string
+      title?: string
+      description?: string
+      author: string
+      visibility: 'public' | 'private' | 'community'
+      tags?: string[]
+      customStrategy?: Partial<ContentStrategy>
+    }
+  ): Promise<ContentAddress> {
+    const strategy = this.getStrategy(metadata.category, metadata.customStrategy)
+
+    // Apply compression if needed
+    const processedData = await this.processContent(data, strategy.optimization)
+
+    // Apply encryption if needed
+    const encryptedData = await this.encryptContent(processedData, strategy.storage.encryption, metadata.visibility)
+
+    // Upload to IPFS
+    const result = await this.ipfs.add(encryptedData.data, {
+      pin: true,
+      wrapWithDirectory: false
+    })
+
+    // Create content address
+    const contentAddress: ContentAddress = {
+      cid: result.cid.toString(),
+      path: result.path,
+      mimeType: this.detectMimeType(data),
+      size: result.size,
+      encryption: encryptedData.encryption,
+      replicas: [],
+      availability: {
+        score: 1.0,
+        replicas: 1,
+        regions: ['primary'],
+        averageLatency: 0,
+        uptime: 1.0
+      },
+      accessPattern: {
+        reads: 0,
+        lastAccess: Date.now(),
+        popularity: 0,
+        trend: 'stable',
+        cacheHitRate: 0
+      },
+      retention: {
+        type: strategy.storage.permanence,
+        minimumReplicas: strategy.storage.replication.minimumReplicas,
+        priorityLevel: 'medium'
+      }
+    }
+
+    // Store in registry
+    this.contentRegistry.set(result.cid.toString(), contentAddress)
+
+    // Initiate replication
+    await this.initiateReplication(contentAddress, strategy.storage.replication)
+
+    // Update external services (Pinata, etc.)
+    await this.updateExternalServices(contentAddress, metadata)
+
+    return contentAddress
+  }
+
+  async uploadFile(
+    file: File,
+    metadata: {
+      category: string
+      title?: string
+      description?: string
+      author: string
+      visibility: 'public' | 'private' | 'community'
+      tags?: string[]
+    }
+  ): Promise<ContentAddress> {
+    const buffer = await file.arrayBuffer()
+    const data = new Uint8Array(buffer)
+
+    return this.uploadContent(data, {
+      ...metadata,
+      title: metadata.title || file.name
+    })
+  }
+
+  // Content Retrieval with Caching
+  async getContent(
+    cid: string,
+    options: {
+      preferLocal?: boolean
+      maxLatency?: number
+      quality?: 'low' | 'medium' | 'high'
+    } = {}
+  ): Promise<{
+    data: Uint8Array
+    metadata: any
+    source: 'local' | 'gateway' | 'peer'
+    latency: number
+  }> {
+    const startTime = Date.now()
+    const contentAddress = this.contentRegistry.get(cid)
+
+    // Try local cache first
+    if (options.preferLocal !== false) {
+      const cachedData = await this.getFromLocalCache(cid)
+      if (cachedData) {
+        this.updateAccessPattern(cid, 'cache-hit')
+        return {
+          data: cachedData.data,
+          metadata: cachedData.metadata,
+          source: 'local',
+          latency: Date.now() - startTime
+        }
+      }
+    }
+
+    // Try fastest gateway
+    const gateway = await this.selectOptimalGateway(cid, options.maxLatency)
+    if (gateway) {
+      try {
+        const response = await fetch(`${gateway.url}/ipfs/${cid}`)
+        if (response.ok) {
+          const data = new Uint8Array(await response.arrayBuffer())
+          const decryptedData = await this.decryptContent(data, contentAddress?.encryption)
+
+          // Cache for future use
+          await this.updateLocalCache(cid, decryptedData, contentAddress)
+          this.updateAccessPattern(cid, 'gateway-hit')
+
+          return {
+            data: decryptedData,
+            metadata: {},
+            source: 'gateway',
+            latency: Date.now() - startTime
+          }
+        }
+      } catch (error) {
+        console.warn(`Gateway ${gateway.url} failed:`, error)
+      }
+    }
+
+    // Try P2P retrieval
+    try {
+      const chunks = this.ipfs.cat(cid)
+      const data = new Uint8Array(await this.collectChunks(chunks))
+      const decryptedData = await this.decryptContent(data, contentAddress?.encryption)
+
+      await this.updateLocalCache(cid, decryptedData, contentAddress)
+      this.updateAccessPattern(cid, 'peer-hit')
+
+      return {
+        data: decryptedData,
+        metadata: {},
+        source: 'peer',
+        latency: Date.now() - startTime
+      }
+    } catch (error) {
+      throw new Error(`Failed to retrieve content ${cid}: ${error}`)
+    }
+  }
+
+  // Progressive Media Loading
+  async getMediaWithProgression(
+    cid: string,
+    options: {
+      quality: 'thumbnail' | 'low' | 'medium' | 'high' | 'original'
+      onProgress?: (loaded: number, total: number) => void
+    }
+  ): Promise<{
+    data: Uint8Array
+    quality: string
+    dimensions?: { width: number; height: number }
+  }> {
+    const contentAddress = this.contentRegistry.get(cid)
+    if (!contentAddress) {
+      throw new Error(`Content address not found for ${cid}`)
+    }
+
+    // Check if we have the requested quality cached
+    const cachedData = await this.getFromLocalCache(`${cid}-${options.quality}`)
+    if (cachedData) {
+      return {
+        data: cachedData.data,
+        quality: options.quality,
+        dimensions: cachedData.metadata?.dimensions
+      }
+    }
+
+    // For progressive loading, start with thumbnail if not requested quality
+    if (options.quality !== 'thumbnail') {
+      try {
+        const thumbnail = await this.getMediaWithProgression(cid, { quality: 'thumbnail' })
+        options.onProgress?.(25, 100)
+
+        // Return thumbnail immediately, continue loading full quality in background
+        this.loadHigherQuality(cid, options.quality, options.onProgress)
+        return thumbnail
+      } catch (error) {
+        // Thumbnail not available, continue with full quality
+      }
+    }
+
+    // Load the requested quality
+    const chunks = this.ipfs.cat(cid)
+    const data = await this.collectChunksWithProgress(chunks, options.onProgress)
+    const processedData = await this.processMediaForQuality(data, options.quality)
+
+    // Cache the result
+    await this.updateLocalCache(`${cid}-${options.quality}`, processedData.data, {
+      dimensions: processedData.dimensions
+    })
+
+    return processedData
+  }
+
+  // Content Management
+  async updateContentMetadata(
+    cid: string,
+    metadata: Partial<{
+      title: string
+      description: string
+      tags: string[]
+      category: string
+    }>
+  ): Promise<void> {
+    const contentAddress = this.contentRegistry.get(cid)
+    if (contentAddress) {
+      // Update local registry
+      this.contentRegistry.set(cid, { ...contentAddress })
+
+      // Update external services
+      await this.updateExternalServices(contentAddress, metadata)
+    }
+  }
+
+  async deleteContent(cid: string): Promise<void> {
+    try {
+      // Unpin from IPFS
+      await this.ipfs.pin.rm(cid)
+
+      // Remove from local cache
+      await this.removeFromLocalCache(cid)
+
+      // Remove from registry
+      this.contentRegistry.delete(cid)
+
+      // Notify external services
+      await this.notifyExternalServices('delete', cid)
+    } catch (error) {
+      console.error(`Failed to delete content ${cid}:`, error)
+    }
+  }
+
+  // Analytics and Monitoring
+  async getContentAnalytics(cid: string): Promise<{
+    totalRequests: number
+    uniqueUsers: number
+    bandwidth: number
+    regions: { region: string; requests: number }[]
+    performance: { averageLatency: number; cacheHitRate: number }
+  }> {
+    const contentAddress = this.contentRegistry.get(cid)
+    if (!contentAddress) {
+      throw new Error(`Content not found: ${cid}`)
+    }
+
+    return {
+      totalRequests: contentAddress.accessPattern.reads,
+      uniqueUsers: 0, // Would be tracked separately
+      bandwidth: contentAddress.size * contentAddress.accessPattern.reads,
+      regions: [], // Would be tracked via gateway analytics
+      performance: {
+        averageLatency: contentAddress.availability.averageLatency,
+        cacheHitRate: contentAddress.accessPattern.cacheHitRate
+      }
+    }
+  }
+
+  async getNetworkHealth(): Promise<{
+    totalNodes: number
+    activeNodes: number
+    averageLatency: number
+    totalStorage: number
+    replicationHealth: number
+  }> {
+    const nodes = Array.from(this.nodeRegistry.values())
+    const activeNodes = nodes.filter(node => Date.now() - node.lastSeen < 300000) // 5 minutes
+
+    return {
+      totalNodes: nodes.length,
+      activeNodes: activeNodes.length,
+      averageLatency: activeNodes.reduce((sum, node) => sum + (node.bandwidth || 0), 0) / activeNodes.length,
+      totalStorage: 0, // Would be calculated from node reports
+      replicationHealth: activeNodes.length / Math.max(nodes.length, 1)
+    }
+  }
+
+  // Private Helper Methods
+  private getStrategy(category: string, customStrategy?: Partial<ContentStrategy>): ContentStrategy {
+    const baseStrategy = this.strategies.get(category) || this.strategies.get('post')!
+    return customStrategy ? this.mergeStrategies(baseStrategy, customStrategy) : baseStrategy
+  }
+
+  private mergeStrategies(base: ContentStrategy, custom: Partial<ContentStrategy>): ContentStrategy {
+    return {
+      storage: { ...base.storage, ...custom.storage },
+      distribution: { ...base.distribution, ...custom.distribution },
+      caching: { ...base.caching, ...custom.caching },
+      optimization: { ...base.optimization, ...custom.optimization }
+    }
+  }
+
+  private async processContent(
+    data: Uint8Array | string,
+    optimization: OptimizationStrategy
+  ): Promise<Uint8Array> {
+    // Apply compression, optimization, etc.
+    if (typeof data === 'string') {
+      return new TextEncoder().encode(data)
+    }
+    return data
+  }
+
+  private async encryptContent(
+    data: Uint8Array,
+    encryptionConfig: EncryptionConfig,
+    visibility: string
+  ): Promise<{ data: Uint8Array; encryption?: EncryptionInfo }> {
+    if (!encryptionConfig.enabled || visibility === 'public') {
+      return { data }
+    }
+
+    // Implement encryption logic here
+    // For now, return unencrypted
+    return { data }
+  }
+
+  private async decryptContent(
+    data: Uint8Array,
+    encryption?: EncryptionInfo
+  ): Promise<Uint8Array> {
+    if (!encryption) {
+      return data
+    }
+
+    // Implement decryption logic here
+    return data
+  }
+
+  private detectMimeType(data: Uint8Array | string): string {
+    if (typeof data === 'string') {
+      return 'text/plain'
+    }
+
+    // Basic MIME type detection
+    const signature = Array.from(data.slice(0, 4))
+      .map(byte => byte.toString(16).padStart(2, '0'))
+      .join('')
+
+    const mimeTypes: Record<string, string> = {
+      '89504e47': 'image/png',
+      'ffd8ffe0': 'image/jpeg',
+      'ffd8ffe1': 'image/jpeg',
+      '47494638': 'image/gif',
+      '25504446': 'application/pdf',
+      '504b0304': 'application/zip'
+    }
+
+    return mimeTypes[signature] || 'application/octet-stream'
+  }
+
+  private async collectChunks(chunks: AsyncIterable<Uint8Array>): Promise<Uint8Array> {
+    const arrays: Uint8Array[] = []
+    for await (const chunk of chunks) {
+      arrays.push(chunk)
+    }
+    const totalLength = arrays.reduce((sum, arr) => sum + arr.length, 0)
+    const result = new Uint8Array(totalLength)
+    let offset = 0
+    for (const arr of arrays) {
+      result.set(arr, offset)
+      offset += arr.length
+    }
+    return result
+  }
+
+  private async collectChunksWithProgress(
+    chunks: AsyncIterable<Uint8Array>,
+    onProgress?: (loaded: number, total: number) => void
+  ): Promise<Uint8Array> {
+    // This would need to know total size beforehand for accurate progress
+    return this.collectChunks(chunks)
+  }
+
+  private async getFromLocalCache(cid: string): Promise<{ data: Uint8Array; metadata: any } | null> {
+    // Implement local cache retrieval
+    return null
+  }
+
+  private async updateLocalCache(cid: string, data: Uint8Array, metadata: any): Promise<void> {
+    // Implement local cache storage
+  }
+
+  private async removeFromLocalCache(cid: string): Promise<void> {
+    // Implement local cache removal
+  }
+
+  private async selectOptimalGateway(cid: string, maxLatency?: number): Promise<{ url: string } | null> {
+    // Implement gateway selection logic
+    return { url: 'https://gateway.pinata.cloud' }
+  }
+
+  private updateAccessPattern(cid: string, event: string): void {
+    const contentAddress = this.contentRegistry.get(cid)
+    if (contentAddress) {
+      contentAddress.accessPattern.reads++
+      contentAddress.accessPattern.lastAccess = Date.now()
+      if (event === 'cache-hit') {
+        contentAddress.accessPattern.cacheHitRate =
+          (contentAddress.accessPattern.cacheHitRate * (contentAddress.accessPattern.reads - 1) + 1) /
+          contentAddress.accessPattern.reads
+      }
+    }
+  }
+
+  private async initiateReplication(
+    contentAddress: ContentAddress,
+    replicationConfig: ReplicationConfig
+  ): Promise<void> {
+    // Implement replication logic
+  }
+
+  private async updateExternalServices(contentAddress: ContentAddress, metadata: any): Promise<void> {
+    // Update Pinata, other IPFS services
+  }
+
+  private async notifyExternalServices(action: string, cid: string): Promise<void> {
+    // Notify external services of changes
+  }
+
+  private async loadHigherQuality(
+    cid: string,
+    quality: string,
+    onProgress?: (loaded: number, total: number) => void
+  ): Promise<void> {
+    // Background loading of higher quality media
+  }
+
+  private async processMediaForQuality(
+    data: Uint8Array,
+    quality: string
+  ): Promise<{ data: Uint8Array; dimensions?: { width: number; height: number } }> {
+    // Implement media processing for different qualities
+    return { data }
+  }
+}
+
+// Usage Examples
+export const IPFSIntegrationExamples = {
+  // Upload user avatar
+  async uploadAvatar(file: File, userId: string): Promise<string> {
+    const ipfsService = new EnhancedIPFSService({})
+
+    const contentAddress = await ipfsService.uploadFile(file, {
+      category: 'profile',
+      title: `Avatar for ${userId}`,
+      author: userId,
+      visibility: 'public',
+      tags: ['avatar', 'profile']
+    })
+
+    return contentAddress.cid
+  },
+
+  // Upload post with media
+  async uploadPostMedia(files: File[], postId: string, authorId: string): Promise<string[]> {
+    const ipfsService = new EnhancedIPFSService({})
+    const cids: string[] = []
+
+    for (const file of files) {
+      const contentAddress = await ipfsService.uploadFile(file, {
+        category: 'media',
+        title: `Media for post ${postId}`,
+        author: authorId,
+        visibility: 'public',
+        tags: ['post-media', postId]
+      })
+      cids.push(contentAddress.cid)
+    }
+
+    return cids
+  },
+
+  // Progressive image loading for feed
+  async loadFeedImage(cid: string, container: HTMLElement): Promise<void> {
+    const ipfsService = new EnhancedIPFSService({})
+
+    // Load thumbnail first
+    const thumbnail = await ipfsService.getMediaWithProgression(cid, {
+      quality: 'thumbnail',
+      onProgress: (loaded, total) => {
+        console.log(`Thumbnail loading: ${loaded}/${total}`)
+      }
+    })
+
+    // Display thumbnail
+    const img = document.createElement('img')
+    const blob = new Blob([thumbnail.data])
+    img.src = URL.createObjectURL(blob)
+    img.style.filter = 'blur(5px)'
+    container.appendChild(img)
+
+    // Load full quality
+    const fullImage = await ipfsService.getMediaWithProgression(cid, {
+      quality: 'high',
+      onProgress: (loaded, total) => {
+        const progress = (loaded / total) * 100
+        img.style.filter = `blur(${5 * (1 - loaded / total)}px)`
+      }
+    })
+
+    // Replace with full quality
+    const fullBlob = new Blob([fullImage.data])
+    img.src = URL.createObjectURL(fullBlob)
+    img.style.filter = 'none'
+  }
+}
+
+// Type definitions for additional interfaces
+interface OptimizationStrategy {
+  thumbnails: boolean
+  progressiveLoading: boolean
+  adaptiveBitrate: boolean
+  smartCompression: boolean
+}
+
+interface EncryptionConfig {
+  enabled: boolean
+  userControlled: boolean
+}
+
+interface CompressionConfig {
+  enabled: boolean
+  level: 'low' | 'medium' | 'high'
+  format: 'gzip' | 'brotli' | 'adaptive'
+}
+
+interface GatewayConfig {
+  url: string
+  priority: number
+  region: string
+}
+
+interface LocalCacheConfig {
+  maxSize: string
+  ttl: number
+}
+
+interface EdgeCacheConfig {
+  enabled: boolean
+  ttl: number
+}
+
+interface BrowserCacheConfig {
+  enabled: boolean
+  ttl: number
+}
+
+interface PreloadingConfig {
+  enabled: boolean
+  aggressiveness: 'low' | 'medium' | 'high'
+}

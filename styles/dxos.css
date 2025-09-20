@@ -1,0 +1,594 @@
+/**
+ * DXOS Component Styles
+ * Styling for peer-to-peer social media components
+ */
+
+/* DXOS Identity Manager */
+.dxos-identity-manager {
+  margin: 2rem 0;
+  padding: 1.5rem;
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(212, 175, 55, 0.1), rgba(50, 50, 50, 0.1));
+  border: 1px solid rgba(212, 175, 55, 0.3);
+}
+
+.initialization-state,
+.identity-creation {
+  text-align: center;
+  padding: 2rem;
+}
+
+.init-icon,
+.creation-icon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+  display: block;
+}
+
+.loading-spinner {
+  margin: 1rem 0;
+}
+
+.spinner {
+  display: inline-block;
+  font-size: 2rem;
+}
+
+.creation-header h3 {
+  color: #D4AF37;
+  margin-bottom: 0.5rem;
+}
+
+.creation-form {
+  max-width: 400px;
+  margin: 2rem auto;
+  text-align: left;
+}
+
+.form-group {
+  margin-bottom: 1.5rem;
+}
+
+.form-label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+  color: #333;
+}
+
+.display-name-input {
+  width: 100%;
+  padding: 0.75rem;
+  border: 2px solid #ddd;
+  border-radius: 8px;
+  font-size: 1rem;
+  transition: border-color 0.3s ease;
+}
+
+.display-name-input:focus {
+  outline: none;
+  border-color: #D4AF37;
+}
+
+.input-help {
+  font-size: 0.875rem;
+  color: #666;
+  margin-top: 0.25rem;
+}
+
+.session-info {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  background: rgba(0, 150, 0, 0.1);
+  border-radius: 6px;
+  margin-bottom: 1rem;
+}
+
+.create-identity-button {
+  width: 100%;
+  padding: 1rem;
+  background: linear-gradient(135deg, #D4AF37, #B8941F);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.create-identity-button:hover:not(:disabled) {
+  background: linear-gradient(135deg, #B8941F, #D4AF37);
+  transform: translateY(-2px);
+}
+
+.create-identity-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.button-spinner {
+  display: inline-block;
+}
+
+.security-notice {
+  margin: 2rem 0;
+  padding: 1.5rem;
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 8px;
+  border-left: 4px solid #D4AF37;
+}
+
+.notice-content h5 {
+  margin-bottom: 0.5rem;
+  color: #333;
+}
+
+.notice-content ul {
+  margin: 0;
+  padding-left: 1.5rem;
+}
+
+.notice-content li {
+  margin-bottom: 0.25rem;
+  color: #666;
+}
+
+.features-preview {
+  margin-top: 2rem;
+}
+
+.feature-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.feature-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem;
+}
+
+.feature-icon {
+  font-size: 1.25rem;
+}
+
+/* Connected Identity State */
+.dxos-identity-manager.connected {
+  background: linear-gradient(135deg, rgba(0, 150, 0, 0.1), rgba(212, 175, 55, 0.1));
+  border-color: rgba(0, 150, 0, 0.3);
+}
+
+.identity-status {
+  text-align: center;
+}
+
+.status-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.identity-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: #D4AF37;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  font-weight: bold;
+}
+
+.identity-info h4 {
+  margin: 0 0 0.25rem 0;
+  color: #333;
+}
+
+.identity-id {
+  font-size: 0.875rem;
+  color: #666;
+  font-family: monospace;
+}
+
+.connection-indicator {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.status-dot.online {
+  background: #00FF00;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0% { opacity: 1; }
+  50% { opacity: 0.5; }
+  100% { opacity: 1; }
+}
+
+.status-text {
+  font-size: 0.875rem;
+  color: #666;
+}
+
+.toggle-advanced-button {
+  margin-top: 1rem;
+  padding: 0.5rem 1rem;
+  background: transparent;
+  border: 1px solid #D4AF37;
+  border-radius: 6px;
+  color: #D4AF37;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.toggle-advanced-button:hover {
+  background: rgba(212, 175, 55, 0.1);
+}
+
+.advanced-info {
+  margin-top: 1rem;
+  padding: 1rem;
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 6px;
+}
+
+.detail-item {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+  font-size: 0.875rem;
+}
+
+.detail-item .label {
+  font-weight: 600;
+  color: #333;
+}
+
+.detail-item .value {
+  color: #666;
+  font-family: monospace;
+}
+
+/* Error Banner */
+.error-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  background: rgba(255, 0, 0, 0.1);
+  border: 1px solid rgba(255, 0, 0, 0.3);
+  border-radius: 6px;
+  margin-bottom: 1rem;
+}
+
+.error-message {
+  flex: 1;
+  color: #cc0000;
+}
+
+.error-close {
+  background: none;
+  border: none;
+  font-size: 1.25rem;
+  cursor: pointer;
+  color: #cc0000;
+}
+
+/* DXOS Memory Manager */
+.dxos-memory-manager {
+  margin: 2rem 0;
+  padding: 1.5rem;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(212, 175, 55, 0.3);
+}
+
+.memory-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.header-info h3 {
+  margin: 0 0 0.5rem 0;
+  color: #333;
+}
+
+.connection-status {
+  font-size: 0.875rem;
+}
+
+.status-indicator.online {
+  color: #00AA00;
+  font-weight: 600;
+}
+
+.loading-indicator {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #666;
+  font-size: 0.875rem;
+}
+
+/* Create Memory Form */
+.create-memory-form {
+  margin-bottom: 2rem;
+  padding: 1.5rem;
+  background: rgba(212, 175, 55, 0.1);
+  border-radius: 8px;
+  border: 1px solid rgba(212, 175, 55, 0.3);
+}
+
+.memory-title-input,
+.memory-content-input,
+.memory-tags-input {
+  width: 100%;
+  padding: 0.75rem;
+  border: 2px solid #ddd;
+  border-radius: 6px;
+  font-family: inherit;
+  transition: border-color 0.3s ease;
+}
+
+.memory-title-input:focus,
+.memory-content-input:focus,
+.memory-tags-input:focus {
+  outline: none;
+  border-color: #D4AF37;
+}
+
+.memory-content-input {
+  resize: vertical;
+  min-height: 80px;
+}
+
+.create-memory-button {
+  width: 100%;
+  padding: 1rem;
+  background: linear-gradient(135deg, #D4AF37, #B8941F);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.create-memory-button:hover:not(:disabled) {
+  background: linear-gradient(135deg, #B8941F, #D4AF37);
+  transform: translateY(-2px);
+}
+
+.create-memory-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Memories Grid */
+.memories-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.memory-card {
+  background: white;
+  border-radius: 8px;
+  padding: 1.5rem;
+  border: 1px solid #eee;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.memory-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  border-color: #D4AF37;
+}
+
+.memory-content-section {
+  margin-bottom: 1rem;
+}
+
+.memory-title {
+  margin: 0 0 0.75rem 0;
+  color: #333;
+  font-size: 1.125rem;
+}
+
+.memory-preview {
+  color: #666;
+  line-height: 1.5;
+  margin-bottom: 1rem;
+}
+
+.memory-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.memory-tag {
+  padding: 0.25rem 0.5rem;
+  background: rgba(212, 175, 55, 0.2);
+  color: #B8941F;
+  border-radius: 4px;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.memory-metadata {
+  border-top: 1px solid #eee;
+  padding-top: 1rem;
+}
+
+.memory-author {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.author-name {
+  font-weight: 600;
+  color: #333;
+}
+
+.memory-timestamp {
+  font-size: 0.875rem;
+  color: #666;
+}
+
+.memory-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.view-button,
+.delete-button {
+  padding: 0.5rem 1rem;
+  border: 1px solid;
+  border-radius: 4px;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.view-button {
+  background: white;
+  border-color: #D4AF37;
+  color: #D4AF37;
+}
+
+.view-button:hover {
+  background: rgba(212, 175, 55, 0.1);
+}
+
+.delete-button {
+  background: white;
+  border-color: #cc0000;
+  color: #cc0000;
+}
+
+.delete-button:hover {
+  background: rgba(255, 0, 0, 0.1);
+}
+
+.memory-stats {
+  display: flex;
+  gap: 1rem;
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid #f0f0f0;
+  font-size: 0.875rem;
+  color: #666;
+}
+
+.stat {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+/* Empty State */
+.empty-state {
+  text-align: center;
+  padding: 3rem 1rem;
+  color: #666;
+}
+
+.empty-icon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+}
+
+.empty-state h4 {
+  margin-bottom: 0.5rem;
+  color: #333;
+}
+
+/* Loading and Error States */
+.loading-state,
+.connection-required,
+.error-state {
+  text-align: center;
+  padding: 3rem 1rem;
+}
+
+.loading-spinner,
+.connection-icon,
+.error-icon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+  display: block;
+}
+
+.connection-required h3,
+.error-state h3 {
+  margin-bottom: 0.5rem;
+  color: #333;
+}
+
+.error-message {
+  color: #cc0000;
+  margin-top: 1rem;
+  padding: 1rem;
+  background: rgba(255, 0, 0, 0.1);
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .dxos-identity-manager,
+  .dxos-memory-manager {
+    margin: 1rem 0;
+    padding: 1rem;
+  }
+
+  .memories-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .status-header {
+    flex-direction: column;
+    gap: 1rem;
+    text-align: center;
+  }
+
+  .memory-actions {
+    flex-direction: column;
+  }
+
+  .feature-list {
+    grid-template-columns: 1fr;
+  }
+}

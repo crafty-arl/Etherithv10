@@ -1,0 +1,421 @@
+/**
+ * DXOS Space Schema for Etherith Social Media Platform
+ * Defines the data structures and relationships for social features
+ */
+
+import { Schema, type Space } from '@dxos/schema'
+
+// Core User Entity
+export const UserProfileSchema = Schema.define({
+  typename: 'UserProfile',
+  properties: {
+    id: { type: 'string', primary: true },
+    email: { type: 'string', unique: true },
+    displayName: { type: 'string' },
+    bio: { type: 'string', optional: true },
+    avatar: { type: 'string', optional: true },
+    banner: { type: 'string', optional: true },
+    pronouns: { type: 'string', optional: true },
+    location: { type: 'string', optional: true },
+    website: { type: 'string', optional: true },
+    interests: { type: 'array', items: { type: 'string' } },
+    skills: { type: 'array', items: { type: 'string' } },
+    socialLinks: { type: 'array', items: { $ref: '#/definitions/SocialLink' } },
+    verificationStatus: { type: 'string', enum: ['none', 'pending', 'verified'] },
+    privacy: { $ref: '#/definitions/PrivacySettings' },
+    preferences: { $ref: '#/definitions/UserPreferences' },
+    stats: { $ref: '#/definitions/UserStats' },
+    createdAt: { type: 'number' },
+    updatedAt: { type: 'number' },
+    lastSeen: { type: 'number' }
+  }
+})
+
+// Social Posts
+export const PostSchema = Schema.define({
+  typename: 'Post',
+  properties: {
+    id: { type: 'string', primary: true },
+    author: { type: 'string', ref: 'UserProfile' },
+    content: { type: 'string' },
+    mediaAttachments: { type: 'array', items: { $ref: '#/definitions/MediaAttachment' } },
+    mentions: { type: 'array', items: { type: 'string' } },
+    hashtags: { type: 'array', items: { type: 'string' } },
+    spaceId: { type: 'string' },
+    parentPostId: { type: 'string', optional: true }, // For replies/threads
+    rootPostId: { type: 'string', optional: true }, // For deep threads
+    replyCount: { type: 'number', default: 0 },
+    visibility: {
+      type: 'string',
+      enum: ['public', 'followers', 'space', 'private'],
+      default: 'public'
+    },
+    contentType: {
+      type: 'string',
+      enum: ['text', 'image', 'video', 'audio', 'document', 'memory'],
+      default: 'text'
+    },
+    timestamp: { type: 'number' },
+    editedAt: { type: 'number', optional: true },
+    reactions: { type: 'array', items: { $ref: '#/definitions/Reaction' } },
+    reposts: { type: 'array', items: { $ref: '#/definitions/Repost' } },
+    bookmarks: { type: 'array', items: { type: 'string' } }, // User IDs who bookmarked
+    aiAnalysis: { $ref: '#/definitions/AIAnalysis', optional: true },
+    ipfsHash: { type: 'string', optional: true },
+    archived: { type: 'boolean', default: false }
+  }
+})
+
+// Enhanced Memory for Social Context
+export const SocialMemorySchema = Schema.define({
+  typename: 'SocialMemory',
+  properties: {
+    id: { type: 'string', primary: true },
+    title: { type: 'string' },
+    content: { type: 'string' },
+    memoryNote: { type: 'string', optional: true },
+    authorId: { type: 'string', ref: 'UserProfile' },
+    collaborators: { type: 'array', items: { type: 'string' } }, // User IDs
+    tags: { type: 'array', items: { type: 'string' } },
+    category: { type: 'string', optional: true },
+    visibility: {
+      type: 'string',
+      enum: ['private', 'shared', 'community', 'public'],
+      default: 'private'
+    },
+    fileType: {
+      type: 'string',
+      enum: ['text', 'document', 'audio', 'image', 'video']
+    },
+    fileData: { type: 'string', optional: true }, // Base64 for small files
+    fileName: { type: 'string', optional: true },
+    fileSize: { type: 'number', optional: true },
+    mimeType: { type: 'string', optional: true },
+    ipfsCid: { type: 'string', optional: true },
+    ipfsUrl: { type: 'string', optional: true },
+    thumbnailUrl: { type: 'string', optional: true },
+    timestamp: { type: 'number' },
+    updatedAt: { type: 'number' },
+    version: { type: 'number', default: 1 },
+    aiAnalysis: { $ref: '#/definitions/MemoryAIAnalysis', optional: true },
+    engagement: { $ref: '#/definitions/MemoryEngagement' }
+  }
+})
+
+// Community/Space Management
+export const CommunitySpaceSchema = Schema.define({
+  typename: 'CommunitySpace',
+  properties: {
+    id: { type: 'string', primary: true },
+    name: { type: 'string' },
+    description: { type: 'string' },
+    avatar: { type: 'string', optional: true },
+    banner: { type: 'string', optional: true },
+    category: { type: 'string' },
+    tags: { type: 'array', items: { type: 'string' } },
+    visibility: {
+      type: 'string',
+      enum: ['public', 'private', 'invite-only'],
+      default: 'public'
+    },
+    rules: { type: 'array', items: { $ref: '#/definitions/CommunityRule' } },
+    members: { type: 'array', items: { $ref: '#/definitions/SpaceMember' } },
+    moderators: { type: 'array', items: { type: 'string' } }, // User IDs
+    creator: { type: 'string', ref: 'UserProfile' },
+    stats: { $ref: '#/definitions/CommunityStats' },
+    settings: { $ref: '#/definitions/CommunitySettings' },
+    featured: { type: 'boolean', default: false },
+    verified: { type: 'boolean', default: false },
+    createdAt: { type: 'number' },
+    updatedAt: { type: 'number' }
+  }
+})
+
+// Social Connections
+export const ConnectionSchema = Schema.define({
+  typename: 'Connection',
+  properties: {
+    id: { type: 'string', primary: true },
+    from: { type: 'string', ref: 'UserProfile' },
+    to: { type: 'string', ref: 'UserProfile' },
+    type: {
+      type: 'string',
+      enum: ['follow', 'friend', 'block', 'mute', 'close_friend'],
+      default: 'follow'
+    },
+    mutual: { type: 'boolean', default: false },
+    strength: { type: 'number', default: 1 }, // AI-calculated relationship strength
+    interactionScore: { type: 'number', default: 0 },
+    lastInteraction: { type: 'number', optional: true },
+    notes: { type: 'string', optional: true }, // Private notes about the connection
+    categories: { type: 'array', items: { type: 'string' } }, // Friend lists/categories
+    timestamp: { type: 'number' },
+    updatedAt: { type: 'number' }
+  }
+})
+
+// Notifications System
+export const NotificationSchema = Schema.define({
+  typename: 'Notification',
+  properties: {
+    id: { type: 'string', primary: true },
+    recipient: { type: 'string', ref: 'UserProfile' },
+    type: {
+      type: 'string',
+      enum: [
+        'mention', 'reaction', 'comment', 'follow', 'repost',
+        'memory_shared', 'space_invite', 'friend_request'
+      ]
+    },
+    actor: { type: 'string', ref: 'UserProfile' },
+    targetId: { type: 'string' }, // ID of the target object (post, memory, etc.)
+    targetType: { type: 'string' }, // Type of target object
+    title: { type: 'string' },
+    message: { type: 'string' },
+    read: { type: 'boolean', default: false },
+    archived: { type: 'boolean', default: false },
+    priority: {
+      type: 'string',
+      enum: ['low', 'normal', 'high', 'urgent'],
+      default: 'normal'
+    },
+    timestamp: { type: 'number' },
+    readAt: { type: 'number', optional: true }
+  }
+})
+
+// Real-time Messaging
+export const MessageSchema = Schema.define({
+  typename: 'Message',
+  properties: {
+    id: { type: 'string', primary: true },
+    conversationId: { type: 'string' },
+    sender: { type: 'string', ref: 'UserProfile' },
+    content: { type: 'string' },
+    messageType: {
+      type: 'string',
+      enum: ['text', 'image', 'video', 'audio', 'file', 'memory_share'],
+      default: 'text'
+    },
+    replyTo: { type: 'string', optional: true }, // Message ID
+    attachments: { type: 'array', items: { $ref: '#/definitions/MessageAttachment' } },
+    reactions: { type: 'array', items: { $ref: '#/definitions/MessageReaction' } },
+    edited: { type: 'boolean', default: false },
+    editedAt: { type: 'number', optional: true },
+    delivered: { type: 'boolean', default: false },
+    read: { type: 'boolean', default: false },
+    timestamp: { type: 'number' }
+  }
+})
+
+// Supporting Type Definitions
+export const Definitions = {
+  SocialLink: {
+    platform: { type: 'string' },
+    url: { type: 'string' },
+    username: { type: 'string', optional: true }
+  },
+
+  PrivacySettings: {
+    profileVisibility: {
+      type: 'string',
+      enum: ['public', 'followers', 'private'],
+      default: 'public'
+    },
+    allowDirectMessages: { type: 'boolean', default: true },
+    allowMentions: { type: 'boolean', default: true },
+    allowTagging: { type: 'boolean', default: true },
+    allowDiscovery: { type: 'boolean', default: true },
+    showOnlineStatus: { type: 'boolean', default: true }
+  },
+
+  UserPreferences: {
+    theme: { type: 'string', enum: ['light', 'dark', 'auto'], default: 'auto' },
+    language: { type: 'string', default: 'en' },
+    notifications: { $ref: '#/definitions/NotificationPreferences' },
+    feed: { $ref: '#/definitions/FeedPreferences' },
+    accessibility: { $ref: '#/definitions/AccessibilitySettings' }
+  },
+
+  UserStats: {
+    followerCount: { type: 'number', default: 0 },
+    followingCount: { type: 'number', default: 0 },
+    postCount: { type: 'number', default: 0 },
+    memoryCount: { type: 'number', default: 0 },
+    reactionCount: { type: 'number', default: 0 },
+    reputation: { type: 'number', default: 0 }
+  },
+
+  MediaAttachment: {
+    id: { type: 'string' },
+    type: { type: 'string', enum: ['image', 'video', 'audio', 'document'] },
+    url: { type: 'string' },
+    thumbnailUrl: { type: 'string', optional: true },
+    fileName: { type: 'string' },
+    fileSize: { type: 'number' },
+    mimeType: { type: 'string' },
+    ipfsHash: { type: 'string', optional: true },
+    altText: { type: 'string', optional: true },
+    dimensions: {
+      width: { type: 'number', optional: true },
+      height: { type: 'number', optional: true }
+    }
+  },
+
+  Reaction: {
+    id: { type: 'string' },
+    userId: { type: 'string', ref: 'UserProfile' },
+    type: {
+      type: 'string',
+      enum: ['heart', 'thumbs_up', 'thumbs_down', 'laugh', 'sad', 'angry', 'wow']
+    },
+    timestamp: { type: 'number' }
+  },
+
+  Repost: {
+    id: { type: 'string' },
+    userId: { type: 'string', ref: 'UserProfile' },
+    comment: { type: 'string', optional: true },
+    timestamp: { type: 'number' }
+  },
+
+  AIAnalysis: {
+    sentiment: {
+      score: { type: 'number' },
+      label: { type: 'string', enum: ['positive', 'negative', 'neutral'] }
+    },
+    topics: { type: 'array', items: { type: 'string' } },
+    entities: { type: 'array', items: { $ref: '#/definitions/Entity' } },
+    toxicity: { type: 'number' },
+    engagement_prediction: { type: 'number' },
+    suggested_tags: { type: 'array', items: { type: 'string' } },
+    confidence: { type: 'number' }
+  },
+
+  Entity: {
+    text: { type: 'string' },
+    type: { type: 'string' },
+    confidence: { type: 'number' },
+    start: { type: 'number' },
+    end: { type: 'number' }
+  },
+
+  SpaceMember: {
+    userId: { type: 'string', ref: 'UserProfile' },
+    role: {
+      type: 'string',
+      enum: ['owner', 'admin', 'moderator', 'member'],
+      default: 'member'
+    },
+    joinedAt: { type: 'number' },
+    permissions: { type: 'array', items: { type: 'string' } }
+  },
+
+  CommunityRule: {
+    id: { type: 'string' },
+    title: { type: 'string' },
+    description: { type: 'string' },
+    severity: { type: 'string', enum: ['warning', 'timeout', 'ban'] },
+    order: { type: 'number' }
+  },
+
+  CommunityStats: {
+    memberCount: { type: 'number', default: 0 },
+    postCount: { type: 'number', default: 0 },
+    activeMembers: { type: 'number', default: 0 },
+    growthRate: { type: 'number', default: 0 }
+  },
+
+  CommunitySettings: {
+    allowInvites: { type: 'boolean', default: true },
+    requireApproval: { type: 'boolean', default: false },
+    allowExternalSharing: { type: 'boolean', default: true },
+    contentModeration: {
+      type: 'string',
+      enum: ['none', 'basic', 'strict'],
+      default: 'basic'
+    }
+  }
+}
+
+// Space Initialization Functions
+export async function initializeUserSpace(space: Space, userId: string) {
+  // Create user profile
+  const userProfile = space.create(UserProfileSchema, {
+    id: userId,
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+    lastSeen: Date.now()
+  })
+
+  // Initialize user's private collections
+  return {
+    profile: userProfile,
+    posts: space.collection('Post'),
+    memories: space.collection('SocialMemory'),
+    connections: space.collection('Connection'),
+    notifications: space.collection('Notification'),
+    messages: space.collection('Message')
+  }
+}
+
+export async function initializeCommunitySpace(space: Space, communityData: any) {
+  // Create community
+  const community = space.create(CommunitySpaceSchema, {
+    ...communityData,
+    createdAt: Date.now(),
+    updatedAt: Date.now()
+  })
+
+  // Initialize community collections
+  return {
+    community,
+    posts: space.collection('Post'),
+    members: space.collection('SpaceMember'),
+    rules: space.collection('CommunityRule')
+  }
+}
+
+// Query Helpers
+export const Queries = {
+  // Get user's feed posts
+  getUserFeed: (space: Space, userId: string, followingIds: string[]) => {
+    return space.query('Post', {
+      where: {
+        author: { in: [...followingIds, userId] },
+        visibility: { in: ['public', 'followers'] }
+      },
+      orderBy: { timestamp: 'desc' },
+      limit: 20
+    })
+  },
+
+  // Get user's notifications
+  getUserNotifications: (space: Space, userId: string) => {
+    return space.query('Notification', {
+      where: { recipient: userId },
+      orderBy: { timestamp: 'desc' },
+      limit: 50
+    })
+  },
+
+  // Get community posts
+  getCommunityPosts: (space: Space, spaceId: string) => {
+    return space.query('Post', {
+      where: { spaceId },
+      orderBy: { timestamp: 'desc' },
+      limit: 20
+    })
+  },
+
+  // Get user's connections
+  getUserConnections: (space: Space, userId: string, type: string = 'follow') => {
+    return space.query('Connection', {
+      where: {
+        from: userId,
+        type
+      },
+      orderBy: { timestamp: 'desc' }
+    })
+  }
+}

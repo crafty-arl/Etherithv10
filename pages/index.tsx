@@ -6,14 +6,19 @@ import { motion, AnimatePresence } from 'framer-motion'
 import DiscordConnect from '../components/DiscordConnect'
 import IPFSStatus from '../components/IPFSStatus'
 import NetworkMemories from '../components/NetworkMemories'
+import DXOSIdentityManager from '../components/DXOSIdentityManager'
+import DXOSMemoryManager from '../components/DXOSMemoryManager'
+import { useIdentity } from '../lib/dxos/context'
 
 export default function Home() {
   const { data: session } = useSession()
+  const { hasIdentity } = useIdentity()
   const [isOnline, setIsOnline] = useState(true)
   const [installPrompt, setInstallPrompt] = useState<any>(null)
   const [isInstalled, setIsInstalled] = useState(false)
   const [ipfsConnected, setIpfsConnected] = useState(true)
   const [ipfsReplicas, setIpfsReplicas] = useState(3)
+  const [selectedMemory, setSelectedMemory] = useState<any>(null)
 
   useEffect(() => {
     // Check online status
@@ -203,6 +208,28 @@ export default function Home() {
 
           <DiscordConnect />
 
+          <DXOSIdentityManager
+            className="dxos-identity-section"
+            onIdentityCreated={(identity) => {
+              console.log('Identity created on homepage:', identity)
+            }}
+          />
+
+          {hasIdentity && (
+            <motion.div
+              className="dxos-social-section"
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.2 }}
+            >
+              <DXOSMemoryManager
+                className="public-memories"
+                visibility="public"
+                onMemorySelect={setSelectedMemory}
+              />
+            </motion.div>
+          )}
+
           <NetworkMemories />
 
           {session && (
@@ -249,29 +276,29 @@ export default function Home() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.5, duration: 0.6 }}
             >
-              Grounded yet Futuristic. Warm and Ancestral.
+              Peer-to-Peer Social Media Ecosystem
             </motion.h3>
             <div className="features-grid" role="list">
               {[
                 {
-                  icon: "🏛️",
-                  title: "Ancestral Preservation",
-                  description: "Digital memory vessel for future generations"
-                },
-                {
-                  icon: "🏠",
-                  title: "Local-First Design",
-                  description: "Your knowledge lives with you first"
+                  icon: "🌐",
+                  title: "Decentralized Network",
+                  description: "No central servers, truly peer-to-peer social media"
                 },
                 {
                   icon: "🔐",
-                  title: "Sovereign Control",
-                  description: "Privacy, transparency, and ownership"
+                  title: "Sovereign Identity",
+                  description: "Own your digital identity with cryptographic security"
                 },
                 {
-                  icon: "🌱",
-                  title: "Resilient Growth",
-                  description: "Offline-capable, always accessible"
+                  icon: "🤝",
+                  title: "Real-time Collaboration",
+                  description: "Instant synchronization across all connected peers"
+                },
+                {
+                  icon: "🏠",
+                  title: "Local-First",
+                  description: "Your data lives with you, backed by IPFS permanence"
                 }
               ].map((feature, index) => (
                 <motion.div 
